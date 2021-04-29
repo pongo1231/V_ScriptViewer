@@ -5,7 +5,7 @@ namespace rage
 	struct scrThread
 	{
 		void** m_pVft;
-		DWORD m_dwSomething;
+		DWORD m__dwRunningFlags;
 		DWORD m_dwProgramId;
 		DWORD m_dwSomething2;
 		char m_pad2[188];

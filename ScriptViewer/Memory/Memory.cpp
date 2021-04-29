@@ -23,66 +23,66 @@ namespace Memory
 
 	}
 
-	Handle FindPattern(const std::string& pattern)
+	Handle FindPattern(const std::string& szPattern)
 	{
-		std::vector<int> bytes;
+		std::vector<int> rgiBytes;
 
-		std::string sub = pattern;
+		std::string szSub = szPattern;
 		int offset = 0;
-		while ((offset = sub.find(' ')) != sub.npos)
+		while ((offset = szSub.find(' ')) != szSub.npos)
 		{
-			std::string byteStr = sub.substr(0, offset);
+			std::string szByteStr = szSub.substr(0, offset);
 
-			if (byteStr == "?" || byteStr == "??")
+			if (szByteStr == "?" || szByteStr == "??")
 			{
-				bytes.push_back(-1);
+				rgiBytes.push_back(-1);
 			}
 			else
 			{
-				bytes.push_back(std::stoi(byteStr, nullptr, 16));
+				rgiBytes.push_back(std::stoi(szByteStr, nullptr, 16));
 			}
 
-			sub = sub.substr(offset + 1);
+			szSub = szSub.substr(offset + 1);
 		}
-		if ((offset = pattern.rfind(' ')) != sub.npos)
+		if ((offset = szPattern.rfind(' ')) != szSub.npos)
 		{
-			std::string byteStr = pattern.substr(offset + 1);
-			bytes.push_back(std::stoi(byteStr, nullptr, 16));
+			std::string szByteStr = szPattern.substr(offset + 1);
+			rgiBytes.push_back(std::stoi(szByteStr, nullptr, 16));
 		}
 
-		if (bytes.empty())
+		if (rgiBytes.empty())
 		{
 			return Handle();
 		}
 
-		int count = 0;
-		for (DWORD64 addr = m_baseAddr; addr < m_endAddr; addr++)
+		int iCount = 0;
+		for (DWORD64 dwAddr = m_baseAddr; dwAddr < m_endAddr; dwAddr++)
 		{
-			if (bytes[count] == -1 || *reinterpret_cast<BYTE*>(addr) == bytes[count])
+			if (rgiBytes[iCount] == -1 || *reinterpret_cast<BYTE*>(dwAddr) == rgiBytes[iCount])
 			{
-				if (++count == bytes.size())
+				if (++iCount == rgiBytes.size())
 				{
-					return Handle(addr - count + 1);
+					return Handle(dwAddr - iCount + 1);
 				}
 			}
 			else
 			{
-				count = 0;
+				iCount = 0;
 			}
 		}
 
-		LOG("Couldn't find pattern \"" << pattern << "\"");
+		LOG("Couldn't find pattern \"" << szPattern << "\"");
 
 		return Handle();
 	}
 
-	MH_STATUS AddHook(void* target, void* detour, void** orig)
+	MH_STATUS AddHook(void* pTarget, void* pDetour, void** pOrig)
 	{
-		MH_STATUS result = MH_CreateHook(target, detour, reinterpret_cast<void**>(orig));
+		MH_STATUS result = MH_CreateHook(pTarget, pDetour, reinterpret_cast<void**>(pOrig));
 
 		if (result == MH_OK)
 		{
-			MH_EnableHook(target);
+			MH_EnableHook(pTarget);
 		}
 
 		return result;

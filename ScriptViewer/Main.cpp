@@ -13,6 +13,8 @@
 
 #define SCRIPT_NEW_SCRIPT_NAME_BUFFER_SIZE 64
 
+#define SCRIPT_PROFILING_UPDATE_FREQ 3000
+
 #pragma endregion
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -28,6 +30,7 @@ static bool* ms_pbUserPause = nullptr;
 static rage::scrThread*** ms_pppThreads = nullptr;
 static WORD* ms_pcwThreads = nullptr;
 static std::vector<std::string> ms_rgszScriptNames;
+static std::unordered_map<std::string, ScriptProfile> ms_dcScriptProfiles;
 static std::vector<std::string> ms_rgszBlacklistedScriptNames;
 static std::vector<std::string> ms_rgszKillScriptNamesBuffer;
 static bool ms_bScriptNamesGathered = false;
@@ -36,6 +39,9 @@ static bool ms_bDidInit = false;
 static bool ms_bDidImguiInit = false;
 static bool ms_bIsMenuOpened = false;
 static bool ms_bHasMenuOpenStateJustChanged = false;
+
+static bool ms_bPauseGameOnOverlay = true;
+static bool ms_bBlockKeyboardInputs = true;
 
 static bool ms_bIsNewScriptWindowOpen = false;
 static char ms_rgchNewScriptNameBuffer[SCRIPT_NEW_SCRIPT_NAME_BUFFER_SIZE]{};
@@ -171,7 +177,7 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT syncInterval, UINT
 
 			if (ms_pbUserPause)
 			{
-				*ms_pbUserPause = true;
+				*ms_pbUserPause = ms_bPauseGameOnOverlay;
 			}
 
 			ShowCursor(true);
@@ -182,15 +188,17 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT syncInterval, UINT
 
 			if (ms_bScriptNamesGathered)
 			{
+				ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, { 400.f, 600.f });
+
 				ImGui::Begin("Script Viewer", NULL, ImGuiWindowFlags_NoCollapse);
 
-				ImGui::SetWindowSize({ 400.f, 600.f });
+				ImGui::PopStyleVar();
 
 				static int c_iSelectedItem = 0;
 
 				ImGui::PushItemWidth(-1);
 
-				ImGui::ListBoxHeader("Running Scripts", { 0, -30 });
+				ImGui::ListBoxHeader("", { 0, -50.f });
 				for (int i = 0; i < ms_rgszScriptNames.size(); i++)
 				{
 					bool bIsScriptNameAboutToBeKilled = IsScriptNameAboutToBeKilled(ms_rgszScriptNames[i]);
@@ -205,7 +213,28 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT syncInterval, UINT
 						ImGui::PushStyleColor(ImGui::GetColumnIndex(), { 1.f, 1.f, 0.f, 1.f });
 					}
 
-					if (ImGui::Selectable(ms_rgszScriptNames[i].c_str(), i == c_iSelectedItem))
+					ScriptProfile& scriptProfile = ms_dcScriptProfiles[ms_rgszScriptNames[i]];
+					DWORD64 qwTimestamp = GetTickCount64();
+
+					if (qwTimestamp > scriptProfile.m_qwLastProfileUpdatedTimestamp)
+					{
+						scriptProfile.m_qwLastProfileUpdatedTimestamp = qwTimestamp + SCRIPT_PROFILING_UPDATE_FREQ;
+
+						scriptProfile.m_fCurExecutionTimeMs = scriptProfile.m_llLongestExecutionTimeNs / 1000000.f;
+
+						scriptProfile.m_llLongestExecutionTimeNs = 0;
+					}
+
+					std::ostringstream ossScriptText;
+					ossScriptText << ms_rgszScriptNames[i];
+
+					// Doesn't work for .asi scripts, no profiling for ya!
+					if (ms_rgszScriptNames[i] != "control_thread" && ms_rgszScriptNames[i].find(".asi") == std::string::npos)
+					{
+						ossScriptText << " (" << scriptProfile.m_fCurExecutionTimeMs << " ns)";
+					}
+
+					if (ImGui::Selectable(ossScriptText.str().c_str(), i == c_iSelectedItem))
 					{
 						c_iSelectedItem = i;
 					}
@@ -297,6 +326,24 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT syncInterval, UINT
 					ImGui::PopItemFlag();
 				}
 
+				if (ms_pbUserPause)
+				{
+					if (ImGui::Button(ms_bPauseGameOnOverlay ? "Pause Game: On" : "Pause Game: Off"))
+					{
+						ms_bPauseGameOnOverlay = !ms_bPauseGameOnOverlay;
+					}
+
+					ImGui::SameLine();
+				}
+
+				if (!ms_pbUserPause || !ms_bPauseGameOnOverlay)
+				{
+					if (ImGui::Button(ms_bBlockKeyboardInputs ? "Block Keyboard Inputs: On" : "Block Keyboard Inputs: Off"))
+					{
+						ms_bBlockKeyboardInputs = !ms_bBlockKeyboardInputs;
+					}
+				}
+
 				ImGui::End();
 
 				if (ms_bIsNewScriptWindowOpen)
@@ -353,7 +400,29 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT syncInterval, UINT
 static __int64(*OG_rage__scrThread__Run)(rage::scrThread* pScrThread);
 static __int64 HK_rage__scrThread__Run(rage::scrThread* pScrThread)
 {
-	return IsScriptNameBlacklisted(pScrThread->m_szName) ? 0 : OG_rage__scrThread__Run(pScrThread);
+	if (IsScriptNameBlacklisted(pScrThread->m_szName))
+	{
+		return 0;
+	}
+	else if (ms_bIsMenuOpened)
+	{
+		ScriptProfile& scriptProfile = ms_dcScriptProfiles[pScrThread->m_szName];
+		
+		const auto& startTimestamp = std::chrono::high_resolution_clock::now();
+
+		__int64 result = OG_rage__scrThread__Run(pScrThread);
+
+		__int64 llExecutionTime = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - startTimestamp).count();
+
+		if (llExecutionTime > scriptProfile.m_llLongestExecutionTimeNs)
+		{
+			scriptProfile.m_llLongestExecutionTimeNs = llExecutionTime;
+		}
+	
+		return result;
+	}
+
+	return OG_rage__scrThread__Run(pScrThread);
 }
 
 void Main::Init()
@@ -451,7 +520,7 @@ void Main::Loop()
 
 		for (DWORD i = 0; i < *ms_pcwThreads; i++)
 		{
-			if ((ppThreads[i]->m_dwSomething) /* Check if running */)
+			if (ppThreads[i]->m__dwRunningFlags /* Check if running */)
 			{
 				ms_rgszScriptNames.push_back(ppThreads[i]->m_szName);
 			}
@@ -496,7 +565,7 @@ void Main::LoopWindowActionsBlock()
 	{
 		WAIT(0);
 
-		if (ms_bIsMenuOpened)
+		if (ms_bIsMenuOpened && !ms_bPauseGameOnOverlay && ms_bBlockKeyboardInputs)
 		{
 			DISABLE_ALL_CONTROL_ACTIONS(0);
 		}

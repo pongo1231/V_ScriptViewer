@@ -13,8 +13,8 @@ namespace Memory
 	void Init();
 	void Uninit();
 
-	Handle FindPattern(const std::string& pattern);
-	MH_STATUS AddHook(void* target, void* detour, void** orig);
+	Handle FindPattern(const std::string& szPattern);
+	MH_STATUS AddHook(void* pTarget, void* pDetour, void** ppOrig);
 	
 	template <typename T>
 	inline void Write(T* pAddr, T value, int count = 1)

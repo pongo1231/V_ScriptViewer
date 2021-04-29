@@ -2,6 +2,7 @@
 
 #include "nativesNoNamespaces.h"
 #include "Main.h"
+#include "ScriptProfile.h"
 
 #include "Memory/Memory.h"
 #include "Memory/Handle.h"
@@ -32,3 +33,5 @@
 #include <string>
 #include <sstream>
 #include <vector>
+#include <unordered_map>
+#include <chrono>

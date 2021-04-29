@@ -6,23 +6,23 @@ typedef unsigned long DWORD;
 class Handle
 {
 public:
-	Handle() : m_addr(0) {}
-	Handle(DWORD64 addr) : m_addr(addr) {}
+	Handle() : m_dwAddr(0) {}
+	Handle(DWORD64 addr) : m_dwAddr(addr) {}
 
 	inline bool IsValid() const
 	{
-		return m_addr;
+		return m_dwAddr;
 	}
 
-	inline Handle At(int offset) const
+	inline Handle At(int iOffset) const
 	{
-		return IsValid() ? m_addr + offset : 0;
+		return IsValid() ? m_dwAddr + iOffset : 0;
 	}
 
 	template<typename T>
 	inline T* Get() const
 	{
-		return reinterpret_cast<T*>(m_addr);
+		return reinterpret_cast<T*>(m_dwAddr);
 	}
 
 	template<typename T>
@@ -33,7 +33,7 @@ public:
 
 	inline DWORD64 Addr() const
 	{
-		return m_addr;
+		return m_dwAddr;
 	}
 
 	inline Handle Into() const
@@ -48,5 +48,5 @@ public:
 	}
 
 private:
-	DWORD64 m_addr;
+	DWORD64 m_dwAddr;
 };
