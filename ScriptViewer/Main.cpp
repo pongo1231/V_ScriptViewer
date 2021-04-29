@@ -32,6 +32,7 @@ static WORD* ms_pcwThreads = nullptr;
 static std::vector<std::string> ms_rgszScriptNames;
 static std::unordered_map<std::string, ScriptProfile> ms_dcScriptProfiles;
 static std::vector<std::string> ms_rgszBlacklistedScriptNames;
+static std::mutex ms_rgszBlacklistedScriptNamesMutex;
 static std::vector<std::string> ms_rgszKillScriptNamesBuffer;
 static bool ms_bScriptNamesGathered = false;
 
@@ -57,6 +58,8 @@ static inline void SetWindowOpenState(bool state)
 
 static inline bool IsScriptNameBlacklisted(const std::string& szScriptName)
 {
+	std::lock_guard lock(ms_rgszBlacklistedScriptNamesMutex);
+
 	return std::find(ms_rgszBlacklistedScriptNames.begin(), ms_rgszBlacklistedScriptNames.end(), szScriptName)
 		!= ms_rgszBlacklistedScriptNames.end();
 }
@@ -301,7 +304,7 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT syncInterval, UINT
 
 				ImGui::PopStyleColor();
 
-				if (bIsSelectedScriptNameAboutToBeKilled)
+				if (bIsSelectedScriptNameAboutToBeKilled && !bIsSelectedScriptUnpausable)
 				{
 					ImGui::PopItemFlag();
 				}
