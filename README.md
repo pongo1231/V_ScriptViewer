@@ -25,4 +25,4 @@ git submodule update --recursive
 
 5. Compile libMinHook as x64 Release build
 
-6. Open `ChaosMod.sln` (located in the project root) in Visual Studio
+6. Open `ScriptViewer.sln` (located in the project root) in Visual Studio
