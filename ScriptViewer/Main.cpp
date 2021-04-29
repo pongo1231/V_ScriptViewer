@@ -32,7 +32,7 @@ static WORD* ms_pcwThreads = nullptr;
 static std::vector<std::string> ms_rgszScriptNames;
 static std::unordered_map<std::string, ScriptProfile> ms_dcScriptProfiles;
 static std::vector<std::string> ms_rgszBlacklistedScriptNames;
-static std::mutex ms_rgszBlacklistedScriptNamesMutex;
+static std::mutex ms_blacklistedScriptNamesMutex;
 static std::vector<std::string> ms_rgszKillScriptNamesBuffer;
 static bool ms_bScriptNamesGathered = false;
 
@@ -56,12 +56,37 @@ static inline void SetWindowOpenState(bool state)
 	ms_bHasMenuOpenStateJustChanged = true;
 }
 
+static inline std::vector<std::string>::iterator GetBlacklistedScriptNameEntry(const std::string& szScriptName)
+{
+	std::lock_guard lock(ms_blacklistedScriptNamesMutex);
+
+	return std::find(ms_rgszBlacklistedScriptNames.begin(), ms_rgszBlacklistedScriptNames.end(), szScriptName);
+}
+
 static inline bool IsScriptNameBlacklisted(const std::string& szScriptName)
 {
-	std::lock_guard lock(ms_rgszBlacklistedScriptNamesMutex);
+	std::lock_guard lock(ms_blacklistedScriptNamesMutex);
 
-	return std::find(ms_rgszBlacklistedScriptNames.begin(), ms_rgszBlacklistedScriptNames.end(), szScriptName)
-		!= ms_rgszBlacklistedScriptNames.end();
+	return std::find(ms_rgszBlacklistedScriptNames.begin(), ms_rgszBlacklistedScriptNames.end(), szScriptName) != ms_rgszBlacklistedScriptNames.end();
+}
+
+static inline void BlacklistScriptName(const std::string& szScriptName)
+{
+	std::lock_guard lock(ms_blacklistedScriptNamesMutex);
+
+	ms_rgszBlacklistedScriptNames.push_back(szScriptName);
+}
+
+static inline void UnblacklistScriptName(const std::string& szScriptName)
+{
+	std::lock_guard lock(ms_blacklistedScriptNamesMutex);
+
+	const auto& itScriptName = std::find(ms_rgszBlacklistedScriptNames.begin(), ms_rgszBlacklistedScriptNames.end(), szScriptName);
+
+	if (itScriptName != ms_rgszBlacklistedScriptNames.end())
+	{
+		ms_rgszBlacklistedScriptNames.erase(itScriptName);
+	}
 }
 
 static inline bool IsScriptNameAboutToBeKilled(const std::string& szScriptName)
@@ -258,7 +283,7 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT syncInterval, UINT
 				bool bIsSelectedScriptUnpausable = szSelectedScriptName.find(".asi") != std::string::npos;
 				bool bIsSelectedScriptNameAboutToBeKilled = IsScriptNameAboutToBeKilled(szSelectedScriptName);
 
-				const auto& itSelectedScriptBlacklistedEntry = std::find(ms_rgszBlacklistedScriptNames.begin(), ms_rgszBlacklistedScriptNames.end(), szSelectedScriptName);
+				const auto& itSelectedScriptBlacklistedEntry = GetBlacklistedScriptNameEntry(szSelectedScriptName);
 				bool bIsSelectedScriptNameBlacklisted = itSelectedScriptBlacklistedEntry != ms_rgszBlacklistedScriptNames.end();
 
 				if (bIsSelectedScriptNameBlacklisted)
@@ -275,11 +300,11 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT syncInterval, UINT
 				{
 					if (bIsSelectedScriptNameBlacklisted)
 					{
-						ms_rgszBlacklistedScriptNames.erase(itSelectedScriptBlacklistedEntry);
+						UnblacklistScriptName(szSelectedScriptName);
 					}
 					else
 					{
-						ms_rgszBlacklistedScriptNames.push_back(szSelectedScriptName);
+						BlacklistScriptName(szSelectedScriptName);
 					}
 				}
 
