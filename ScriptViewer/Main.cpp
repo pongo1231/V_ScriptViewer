@@ -259,7 +259,7 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT syncInterval, UINT
 					// Doesn't work for .asi scripts, no profiling for ya!
 					if (ms_rgszScriptNames[i] != "control_thread" && ms_rgszScriptNames[i].find(".asi") == std::string::npos)
 					{
-						ossScriptText << " (" << scriptProfile.m_fCurExecutionTimeMs << " ns)";
+						ossScriptText << " (" << scriptProfile.m_fCurExecutionTimeMs << " ms)";
 					}
 
 					if (ImGui::Selectable(ossScriptText.str().c_str(), i == c_iSelectedItem))
