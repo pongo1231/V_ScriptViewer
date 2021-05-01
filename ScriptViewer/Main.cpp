@@ -606,7 +606,7 @@ void Main::LoopWindowActionsBlock()
 	{
 		WAIT(0);
 
-		if (ms_bIsMenuOpened && !ms_bPauseGameOnOverlay && ms_bBlockKeyboardInputs)
+		if (ms_bIsMenuOpened && (ms_bPauseGameOnOverlay || (!ms_bPauseGameOnOverlay && ms_bBlockKeyboardInputs)))
 		{
 			DISABLE_ALL_CONTROL_ACTIONS(0);
 		}
