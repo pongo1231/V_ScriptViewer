@@ -8,9 +8,8 @@ struct IDXGISwapChain;
 
 namespace Main
 {
-	void Init();
 	void Uninit();
 	void Loop();
 	void LoopWindowActionsBlock();
-	void OnPresence(IDXGISwapChain* swapChain);
+	void OnPresenceCallback(IDXGISwapChain* swapChain);
 };

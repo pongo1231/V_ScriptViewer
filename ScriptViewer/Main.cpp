@@ -23,7 +23,8 @@ static ID3D11DeviceContext* ms_pDeviceContext = nullptr;
 
 static HWND ms_hWnd = 0;
 
-static __int64 ms_dwPresentVftEntryAddr = 0;
+static DWORD64 ms_qwPresentVftEntryAddr = 0;
+static DWORD64 ms_qwResizeBuffersAddr = 0;
 
 static bool* ms_pbUserPause = nullptr;
 
@@ -191,8 +192,8 @@ static LRESULT HK_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	return OG_WndProc(hWnd, uMsg, wParam, lParam);
 }
 
-static HRESULT(*OG_OnPresence)(IDXGISwapChain* pSwapChain, UINT syncInterval, UINT flags);
-static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT syncInterval, UINT flags)
+static HRESULT(*OG_OnPresence)(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UINT uiFlags);
+static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UINT uiFlags)
 {
 	if (ms_bDidImguiInit)
 	{
@@ -422,7 +423,25 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT syncInterval, UINT
 		}
 	}
 
-	return OG_OnPresence(pSwapChain, syncInterval, flags);
+	return OG_OnPresence(pSwapChain, uiSyncInterval, uiFlags);
+}
+
+static HRESULT(*OG_ResizeBuffers)(IDXGISwapChain* pSwapChain, UINT uiBufferCount, UINT uiWidth, UINT uiHeight, DXGI_FORMAT newFormat, UINT uiSwapChainFlags);
+static HRESULT HK_ResizeBuffers(IDXGISwapChain* pSwapChain, UINT uiBufferCount, UINT uiWidth, UINT uiHeight, DXGI_FORMAT newFormat, UINT uiSwapChainFlags)
+{
+	if (ms_bDidImguiInit)
+	{
+		ImGui_ImplDX11_InvalidateDeviceObjects();
+	}
+
+	HRESULT hResult = OG_ResizeBuffers(pSwapChain, uiBufferCount, uiWidth, uiHeight, newFormat, uiSwapChainFlags);
+
+	if (ms_bDidImguiInit)
+	{
+		ImGui_ImplDX11_CreateDeviceObjects();
+	}
+
+	return hResult;
 }
 
 static __int64(*OG_rage__scrThread__Run)(rage::scrThread* pScrThread);
@@ -453,67 +472,6 @@ static __int64 HK_rage__scrThread__Run(rage::scrThread* pScrThread)
 	return OG_rage__scrThread__Run(pScrThread);
 }
 
-void Main::Init()
-{
-	if (ms_bDidInit)
-	{
-		LOG("Script thread has restarted");
-
-		return;
-	}
-
-	MH_Initialize();
-
-	Handle handle;
-
-	// Had no luck with SetWindowsHookEx so we're just going to straight up hook WndProc
-	handle = Memory::FindPattern("48 8B C4 48 89 58 08 4C 89 48 20 55 56 57 41 54 41 55 41 56 41 57 48 8D 68 A1 48 81 EC F0 00 00 00");
-	if (handle.IsValid())
-	{
-		MH_CreateHook(handle.Get<void>(), HK_WndProc, reinterpret_cast<void**>(&OG_WndProc));
-
-		LOG("Hooked WndProc");
-	}
-
-	handle = Memory::FindPattern("E8 ? ? ? ? F3 0F 10 44 24 4C 66 41 C7 46 18 01 00");
-	if (handle.IsValid())
-	{
-		ms_pbUserPause = handle.Into().At(0x5E).At(1).Into().Get<bool>();
-
-		LOG("Found sm_bUserPause");
-	}
-
-	handle = Memory::FindPattern("48 8B 05 ? ? ? ? 48 89 0C 06");
-	if (handle.IsValid())
-	{
-		ms_pppThreads = handle.At(2).Into().Get<rage::scrThread**>();
-
-		LOG("Found rage::scrThread::sm_Threads");
-	}
-
-	handle = Memory::FindPattern("66 89 3D ? ? ? ? 85 F6");
-	if (handle.IsValid())
-	{
-		ms_pcwThreads = handle.At(2).Into().Get<WORD>();
-
-		LOG("Found rage::scrThread::_sm_nThreads");
-	}
-
-	handle = Memory::FindPattern("48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 48 83 EC 20 48 8D 81 D0 00 00 00");
-	if (handle.IsValid())
-	{
-		MH_CreateHook(handle.Get<void>(), HK_rage__scrThread__Run, reinterpret_cast<void**>(&OG_rage__scrThread__Run));
-
-		LOG("Hooked rage::scrThread::Run");
-	}
-
-	MH_EnableHook(MH_ALL_HOOKS);
-
-	ms_bDidInit = true;
-
-	LOG("Completed Init!");
-}
-
 void Main::Uninit()
 {
 	if (ms_bDidImguiInit)
@@ -526,12 +484,69 @@ void Main::Uninit()
 
 	MH_Uninitialize();
 
-	Memory::Write<void*>(reinterpret_cast<void**>(ms_dwPresentVftEntryAddr), reinterpret_cast<void*>(*OG_OnPresence));
+	Memory::Write<void*>(reinterpret_cast<void**>(ms_qwPresentVftEntryAddr), reinterpret_cast<void*>(*OG_OnPresence));
+	Memory::Write<void*>(reinterpret_cast<void**>(ms_qwResizeBuffersAddr), reinterpret_cast<void*>(*OG_ResizeBuffers));
 }
 
 void Main::Loop()
 {
-	Init();
+	if (ms_bDidInit)
+	{
+		LOG("Script thread has restarted");
+	}
+	else
+	{
+		MH_Initialize();
+
+		Handle handle;
+
+		// Had no luck with SetWindowsHookEx so we're just going to straight up hook WndProc
+		handle = Memory::FindPattern("48 8B C4 48 89 58 08 4C 89 48 20 55 56 57 41 54 41 55 41 56 41 57 48 8D 68 A1 48 81 EC F0 00 00 00");
+		if (handle.IsValid())
+		{
+			MH_CreateHook(handle.Get<void>(), HK_WndProc, reinterpret_cast<void**>(&OG_WndProc));
+
+			LOG("Hooked WndProc");
+		}
+
+		handle = Memory::FindPattern("E8 ? ? ? ? F3 0F 10 44 24 4C 66 41 C7 46 18 01 00");
+		if (handle.IsValid())
+		{
+			ms_pbUserPause = handle.Into().At(0x5E).At(1).Into().Get<bool>();
+
+			LOG("Found rage::fwTimer::sm_bUserPause");
+		}
+
+		handle = Memory::FindPattern("48 8B 05 ? ? ? ? 48 89 0C 06");
+		if (handle.IsValid())
+		{
+			ms_pppThreads = handle.At(2).Into().Get<rage::scrThread**>();
+
+			LOG("Found rage::scrThread::sm_Threads");
+		}
+
+		handle = Memory::FindPattern("66 89 3D ? ? ? ? 85 F6");
+		if (handle.IsValid())
+		{
+			ms_pcwThreads = handle.At(2).Into().Get<WORD>();
+
+			LOG("Found rage::scrThread::_sm_nThreads");
+		}
+
+		handle = Memory::FindPattern("48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 48 83 EC 20 48 8D 81 D0 00 00 00");
+		if (handle.IsValid())
+		{
+			MH_CreateHook(handle.Get<void>(), HK_rage__scrThread__Run, reinterpret_cast<void**>(&OG_rage__scrThread__Run));
+
+			LOG("Hooked rage::scrThread::Run");
+		}
+
+		MH_EnableHook(MH_ALL_HOOKS);
+
+		ms_bDidInit = true;
+
+		LOG("Completed Init!");
+	}
 
 	while (true)
 	{
@@ -600,7 +615,7 @@ void Main::LoopWindowActionsBlock()
 	}
 }
 
-void Main::OnPresence(IDXGISwapChain* pSwapChain)
+void Main::OnPresenceCallback(IDXGISwapChain* pSwapChain)
 {
 	if (!ms_bDidImguiInit)
 	{
@@ -613,13 +628,19 @@ void Main::OnPresence(IDXGISwapChain* pSwapChain)
 
 		ms_hWnd = swapChainDesc.OutputWindow;
 
-		ms_dwPresentVftEntryAddr = *reinterpret_cast<__int64*>(pSwapChain) + 64;
+		__int64 pVftFuncs = *reinterpret_cast<__int64*>(pSwapChain);
 
-		OG_OnPresence = *reinterpret_cast<HRESULT(**)(IDXGISwapChain*, UINT, UINT)>(ms_dwPresentVftEntryAddr);
-
-		Memory::Write<void*>(reinterpret_cast<void**>(ms_dwPresentVftEntryAddr), reinterpret_cast<void*>(HK_OnPresence));
+		ms_qwPresentVftEntryAddr = pVftFuncs + 64;
+		OG_OnPresence = *reinterpret_cast<HRESULT(**)(IDXGISwapChain*, UINT, UINT)>(ms_qwPresentVftEntryAddr);
+		Memory::Write<void*>(reinterpret_cast<void**>(ms_qwPresentVftEntryAddr), reinterpret_cast<void*>(HK_OnPresence));
 
 		LOG("Hooked IDXGISwapChain::Present through vftable injection");
+
+		ms_qwResizeBuffersAddr = pVftFuncs + 104;
+		OG_ResizeBuffers = *reinterpret_cast<HRESULT(**)(IDXGISwapChain*, UINT, UINT, UINT, DXGI_FORMAT, UINT)>(ms_qwResizeBuffersAddr);
+		Memory::Write<void*>(reinterpret_cast<void**>(ms_qwResizeBuffersAddr), reinterpret_cast<void*>(HK_ResizeBuffers));
+
+		LOG("Hooked IDXGISwapChain::ResizeBuffers through vftable injection");
 
 		ID3D11Device* pDevice = nullptr;
 		pSwapChain->GetDevice(__uuidof(ID3D11Device), reinterpret_cast<void**>(&pDevice));

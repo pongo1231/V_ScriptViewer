@@ -1,8 +1,8 @@
 #include <stdafx.h>
 
-static void OnPresence(void* swapChain)
+static void OnPresenceCallback(void* swapChain)
 {
-	Main::OnPresence(static_cast<IDXGISwapChain*>(swapChain));
+	Main::OnPresenceCallback(static_cast<IDXGISwapChain*>(swapChain));
 }
 
 BOOL APIENTRY DllMain(HMODULE hInstance, DWORD reason, LPVOID lpReserved)
@@ -16,7 +16,7 @@ BOOL APIENTRY DllMain(HMODULE hInstance, DWORD reason, LPVOID lpReserved)
 
 		scriptRegisterAdditionalThread(hInstance, Main::LoopWindowActionsBlock);
 
-		presentCallbackRegister(OnPresence);
+		presentCallbackRegister(OnPresenceCallback);
 
 		break;
 	case DLL_PROCESS_DETACH:
@@ -26,7 +26,7 @@ BOOL APIENTRY DllMain(HMODULE hInstance, DWORD reason, LPVOID lpReserved)
 
 		scriptUnregister(hInstance);
 
-		presentCallbackUnregister(OnPresence);
+		presentCallbackUnregister(OnPresenceCallback);
 
 		break;
 	}
