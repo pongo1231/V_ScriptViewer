@@ -125,8 +125,6 @@ static LRESULT HK_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				if (c_bIsCtrlPressed)
 				{
 					SetWindowOpenState(!ms_bIsMenuOpened);
-
-					return TRUE;
 				}
 
 				break;
@@ -170,21 +168,19 @@ static LRESULT HK_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				io.KeysDown[wParam] = true;
 			}
 
-			return TRUE;
+			break;
 		case WM_KEYUP:
 			if (wParam < 512)
 			{
 				io.KeysDown[wParam] = false;
 			}
 
-			return TRUE;
+			break;
 		case WM_CHAR:
 			io.AddInputCharacter(wParam);
 
 			break;
 		}
-
-		return TRUE;
 	}
 
 	return OG_WndProc(hWnd, uMsg, wParam, lParam);
@@ -225,53 +221,55 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 
 				ImGui::PushItemWidth(-1);
 
-				ImGui::ListBoxHeader("", { 0, -50.f });
-				for (int i = 0; i < ms_rgszScriptNames.size(); i++)
+				if (ImGui::ListBoxHeader("", { 0, -50.f }))
 				{
-					bool bIsScriptNameAboutToBeKilled = IsScriptNameAboutToBeKilled(ms_rgszScriptNames[i]);
-					bool bIsScriptNameBlacklisted = IsScriptNameBlacklisted(ms_rgszScriptNames[i]);
-
-					if (bIsScriptNameAboutToBeKilled)
+					for (int i = 0; i < ms_rgszScriptNames.size(); i++)
 					{
-						ImGui::PushStyleColor(ImGui::GetColumnIndex(), { 1.f, 0.f, 0.f, 1.f });
+						bool bIsScriptNameAboutToBeKilled = IsScriptNameAboutToBeKilled(ms_rgszScriptNames[i]);
+						bool bIsScriptNameBlacklisted = IsScriptNameBlacklisted(ms_rgszScriptNames[i]);
+
+						if (bIsScriptNameAboutToBeKilled)
+						{
+							ImGui::PushStyleColor(ImGui::GetColumnIndex(), { 1.f, 0.f, 0.f, 1.f });
+						}
+						else if (bIsScriptNameBlacklisted)
+						{
+							ImGui::PushStyleColor(ImGui::GetColumnIndex(), { 1.f, 1.f, 0.f, 1.f });
+						}
+
+						ScriptProfile& scriptProfile = ms_dcScriptProfiles[ms_rgszScriptNames[i]];
+						DWORD64 qwTimestamp = GetTickCount64();
+
+						if (qwTimestamp > scriptProfile.m_qwLastProfileUpdatedTimestamp)
+						{
+							scriptProfile.m_qwLastProfileUpdatedTimestamp = qwTimestamp + SCRIPT_PROFILING_UPDATE_FREQ;
+
+							scriptProfile.m_fCurExecutionTimeMs = scriptProfile.m_llLongestExecutionTimeNs / 1000000.f;
+
+							scriptProfile.m_llLongestExecutionTimeNs = 0;
+						}
+
+						std::ostringstream ossScriptText;
+						ossScriptText << ms_rgszScriptNames[i];
+
+						// Doesn't work for .asi scripts, no profiling for ya!
+						if (ms_rgszScriptNames[i] != "control_thread" && ms_rgszScriptNames[i].find(".asi") == std::string::npos)
+						{
+							ossScriptText << " (" << scriptProfile.m_fCurExecutionTimeMs << " ms)";
+						}
+
+						if (ImGui::Selectable(ossScriptText.str().c_str(), i == c_iSelectedItem))
+						{
+							c_iSelectedItem = i;
+						}
+
+						if (bIsScriptNameAboutToBeKilled || bIsScriptNameBlacklisted)
+						{
+							ImGui::PopStyleColor();
+						}
 					}
-					else if (bIsScriptNameBlacklisted)
-					{
-						ImGui::PushStyleColor(ImGui::GetColumnIndex(), { 1.f, 1.f, 0.f, 1.f });
-					}
-
-					ScriptProfile& scriptProfile = ms_dcScriptProfiles[ms_rgszScriptNames[i]];
-					DWORD64 qwTimestamp = GetTickCount64();
-
-					if (qwTimestamp > scriptProfile.m_qwLastProfileUpdatedTimestamp)
-					{
-						scriptProfile.m_qwLastProfileUpdatedTimestamp = qwTimestamp + SCRIPT_PROFILING_UPDATE_FREQ;
-
-						scriptProfile.m_fCurExecutionTimeMs = scriptProfile.m_llLongestExecutionTimeNs / 1000000.f;
-
-						scriptProfile.m_llLongestExecutionTimeNs = 0;
-					}
-
-					std::ostringstream ossScriptText;
-					ossScriptText << ms_rgszScriptNames[i];
-
-					// Doesn't work for .asi scripts, no profiling for ya!
-					if (ms_rgszScriptNames[i] != "control_thread" && ms_rgszScriptNames[i].find(".asi") == std::string::npos)
-					{
-						ossScriptText << " (" << scriptProfile.m_fCurExecutionTimeMs << " ms)";
-					}
-
-					if (ImGui::Selectable(ossScriptText.str().c_str(), i == c_iSelectedItem))
-					{
-						c_iSelectedItem = i;
-					}
-
-					if (bIsScriptNameAboutToBeKilled || bIsScriptNameBlacklisted)
-					{
-						ImGui::PopStyleColor();
-					}
+					ImGui::ListBoxFooter();
 				}
-				ImGui::ListBoxFooter();
 
 				ImGui::PopItemWidth();
 
