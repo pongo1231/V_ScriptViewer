@@ -28,12 +28,14 @@ static bool* ms_pbUserPause = nullptr;
 
 static rage::scrThread*** ms_pppThreads = nullptr;
 static WORD* ms_pcwThreads = nullptr;
-static std::vector<std::string> ms_rgszScriptNames;
+
 static std::unordered_map<std::string, ScriptProfile> ms_dcScriptProfiles;
+
 static std::vector<std::string> ms_rgszBlacklistedScriptNames;
 static std::mutex ms_blacklistedScriptNamesMutex;
+
 static std::vector<std::string> ms_rgszKillScriptNamesBuffer;
-static bool ms_bScriptNamesGathered = false;
+static std::mutex ms_killScriptNamesMutex;
 
 static bool ms_bDidInit = false;
 static bool ms_bDidImguiInit = false;
@@ -55,14 +57,14 @@ static inline void SetWindowOpenState(bool state)
 	ms_bHasMenuOpenStateJustChanged = true;
 }
 
-static inline std::vector<std::string>::iterator GetBlacklistedScriptNameEntry(const std::string& szScriptName)
+static inline [[nodiscard]] std::vector<std::string>::iterator GetBlacklistedScriptNameEntry(const std::string& szScriptName)
 {
 	std::lock_guard lock(ms_blacklistedScriptNamesMutex);
 
 	return std::find(ms_rgszBlacklistedScriptNames.begin(), ms_rgszBlacklistedScriptNames.end(), szScriptName);
 }
 
-static inline bool IsScriptNameBlacklisted(const std::string& szScriptName)
+static inline [[nodiscard]] bool IsScriptNameBlacklisted(const std::string& szScriptName)
 {
 	std::lock_guard lock(ms_blacklistedScriptNamesMutex);
 
@@ -88,8 +90,10 @@ static inline void UnblacklistScriptName(const std::string& szScriptName)
 	}
 }
 
-static inline bool IsScriptNameAboutToBeKilled(const std::string& szScriptName)
+static inline [[nodiscard]] bool IsScriptNameAboutToBeKilled(const std::string& szScriptName)
 {
+	std::lock_guard lock(ms_killScriptNamesMutex);
+
 	return std::find(ms_rgszKillScriptNamesBuffer.begin(), ms_rgszKillScriptNamesBuffer.end(), szScriptName)
 		!= ms_rgszKillScriptNamesBuffer.end();
 }
@@ -108,7 +112,7 @@ static inline void ClearNewScriptWindowState()
 static LRESULT(*OG_WndProc)(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 static LRESULT HK_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	if (ms_bDidImguiInit && !ms_bDoDispatchNewScript /* Wait for script to dispatch before allowing user to open menu again */)
+	if (ms_bDidImguiInit)
 	{
 		static bool c_bIsCtrlPressed = false;
 
@@ -209,194 +213,205 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 			ImGui_ImplWin32_NewFrame();
 			ImGui::NewFrame();
 
-			if (ms_bScriptNamesGathered)
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, { 400.f, 600.f });
+
+			ImGui::Begin("Script Viewer", NULL, ImGuiWindowFlags_NoCollapse);
+
+			ImGui::PopStyleVar();
+
+			static int c_iSelectedItem = 0;
+
+			ImGui::PushItemWidth(-1);
+
+			rage::scrThread** ppThreads = *ms_pppThreads;
+
+			if (ImGui::ListBoxHeader("", { 0, -50.f }))
 			{
-				ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, { 400.f, 600.f });
-
-				ImGui::Begin("Script Viewer", NULL, ImGuiWindowFlags_NoCollapse);
-
-				ImGui::PopStyleVar();
-
-				static int c_iSelectedItem = 0;
-
-				ImGui::PushItemWidth(-1);
-
-				if (ImGui::ListBoxHeader("", { 0, -50.f }))
+				for (WORD wScriptId = 0; wScriptId < *ms_pcwThreads; wScriptId++)
 				{
-					for (int i = 0; i < ms_rgszScriptNames.size(); i++)
+					if (!ppThreads[wScriptId]->m__dwRunningFlags)
 					{
-						bool bIsScriptNameAboutToBeKilled = IsScriptNameAboutToBeKilled(ms_rgszScriptNames[i]);
-						bool bIsScriptNameBlacklisted = IsScriptNameBlacklisted(ms_rgszScriptNames[i]);
-
-						if (bIsScriptNameAboutToBeKilled)
-						{
-							ImGui::PushStyleColor(ImGui::GetColumnIndex(), { 1.f, 0.f, 0.f, 1.f });
-						}
-						else if (bIsScriptNameBlacklisted)
-						{
-							ImGui::PushStyleColor(ImGui::GetColumnIndex(), { 1.f, 1.f, 0.f, 1.f });
-						}
-
-						ScriptProfile& scriptProfile = ms_dcScriptProfiles[ms_rgszScriptNames[i]];
-						DWORD64 qwTimestamp = GetTickCount64();
-
-						if (qwTimestamp > scriptProfile.m_qwLastProfileUpdatedTimestamp)
-						{
-							scriptProfile.m_qwLastProfileUpdatedTimestamp = qwTimestamp + SCRIPT_PROFILING_UPDATE_FREQ;
-
-							scriptProfile.m_fCurExecutionTimeMs = scriptProfile.m_llLongestExecutionTimeNs / 1000000.f;
-
-							scriptProfile.m_llLongestExecutionTimeNs = 0;
-						}
-
-						std::ostringstream ossScriptText;
-						ossScriptText << ms_rgszScriptNames[i];
-
-						// Doesn't work for .asi scripts, no profiling for ya!
-						if (ms_rgszScriptNames[i] != "control_thread" && ms_rgszScriptNames[i].find(".asi") == std::string::npos)
-						{
-							ossScriptText << " (" << scriptProfile.m_fCurExecutionTimeMs << " ms)";
-						}
-
-						if (ImGui::Selectable(ossScriptText.str().c_str(), i == c_iSelectedItem))
-						{
-							c_iSelectedItem = i;
-						}
-
-						if (bIsScriptNameAboutToBeKilled || bIsScriptNameBlacklisted)
-						{
-							ImGui::PopStyleColor();
-						}
+						continue;
 					}
-					ImGui::ListBoxFooter();
+
+					std::string szScriptName = ppThreads[wScriptId]->m_szName;
+
+					bool bIsScriptNameAboutToBeKilled = IsScriptNameAboutToBeKilled(szScriptName);
+					bool bIsScriptNameBlacklisted = IsScriptNameBlacklisted(szScriptName);
+
+					if (bIsScriptNameAboutToBeKilled)
+					{
+						ImGui::PushStyleColor(ImGui::GetColumnIndex(), { 1.f, 0.f, 0.f, 1.f });
+					}
+					else if (bIsScriptNameBlacklisted)
+					{
+						ImGui::PushStyleColor(ImGui::GetColumnIndex(), { 1.f, 1.f, 0.f, 1.f });
+					}
+
+					ScriptProfile& scriptProfile = ms_dcScriptProfiles[szScriptName];
+					DWORD64 qwTimestamp = GetTickCount64();
+
+					if (qwTimestamp > scriptProfile.m_qwLastProfileUpdatedTimestamp)
+					{
+						scriptProfile.m_qwLastProfileUpdatedTimestamp = qwTimestamp + SCRIPT_PROFILING_UPDATE_FREQ;
+
+						scriptProfile.m_fCurExecutionTimeMs = scriptProfile.m_llLongestExecutionTimeNs / 1000000.f;
+
+						scriptProfile.m_llLongestExecutionTimeNs = 0;
+					}
+
+					std::ostringstream ossScriptText;
+					ossScriptText << szScriptName;
+
+					// Doesn't work for .asi scripts, no profiling for ya!
+					if (szScriptName != "control_thread" && szScriptName.find(".asi") == std::string::npos)
+					{
+						ossScriptText << " (" << scriptProfile.m_fCurExecutionTimeMs << " ms)";
+					}
+
+					if (ImGui::Selectable(ossScriptText.str().c_str(), wScriptId == c_iSelectedItem))
+					{
+						c_iSelectedItem = wScriptId;
+					}
+
+					if (bIsScriptNameAboutToBeKilled || bIsScriptNameBlacklisted)
+					{
+						ImGui::PopStyleColor();
+					}
 				}
 
-				ImGui::PopItemWidth();
+				ImGui::ListBoxFooter();
+			}
 
-				ImGui::Spacing();
+			ImGui::PopItemWidth();
 
-				const std::string& szSelectedScriptName = ms_rgszScriptNames[c_iSelectedItem];
+			ImGui::Spacing();
 
-				bool bIsSelectedScriptUnpausable = szSelectedScriptName.find(".asi") != std::string::npos;
-				bool bIsSelectedScriptNameAboutToBeKilled = IsScriptNameAboutToBeKilled(szSelectedScriptName);
+			std::string szSelectedScriptName = ppThreads[c_iSelectedItem]->m_szName;
 
-				const auto& itSelectedScriptBlacklistedEntry = GetBlacklistedScriptNameEntry(szSelectedScriptName);
-				bool bIsSelectedScriptNameBlacklisted = itSelectedScriptBlacklistedEntry != ms_rgszBlacklistedScriptNames.end();
+			bool bIsSelectedScriptUnpausable = szSelectedScriptName.find(".asi") != std::string::npos;
+			bool bIsSelectedScriptNameAboutToBeKilled = IsScriptNameAboutToBeKilled(szSelectedScriptName);
 
+			const auto& itSelectedScriptBlacklistedEntry = GetBlacklistedScriptNameEntry(szSelectedScriptName);
+			bool bIsSelectedScriptNameBlacklisted = itSelectedScriptBlacklistedEntry != ms_rgszBlacklistedScriptNames.end();
+
+			if (bIsSelectedScriptNameBlacklisted)
+			{
+				ImGui::PushStyleColor(ImGui::GetColumnIndex(), { 1.f, 1.f, 0.f, 1.f });
+			}
+
+			if (bIsSelectedScriptUnpausable || bIsSelectedScriptNameAboutToBeKilled)
+			{
+				ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+			}
+
+			if (ImGui::Button(bIsSelectedScriptNameBlacklisted ? "Unpause" : "Pause"))
+			{
 				if (bIsSelectedScriptNameBlacklisted)
 				{
-					ImGui::PushStyleColor(ImGui::GetColumnIndex(), { 1.f, 1.f, 0.f, 1.f });
+					UnblacklistScriptName(szSelectedScriptName);
 				}
-
-				if (bIsSelectedScriptUnpausable || bIsSelectedScriptNameAboutToBeKilled)
+				else
 				{
-					ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+					BlacklistScriptName(szSelectedScriptName);
 				}
+			}
 
-				if (ImGui::Button(bIsSelectedScriptNameBlacklisted ? "Unpause" : "Pause"))
-				{
-					if (bIsSelectedScriptNameBlacklisted)
-					{
-						UnblacklistScriptName(szSelectedScriptName);
-					}
-					else
-					{
-						BlacklistScriptName(szSelectedScriptName);
-					}
-				}
+			if (bIsSelectedScriptUnpausable)
+			{
+				ImGui::PopItemFlag();
+			}
 
-				if (bIsSelectedScriptUnpausable)
-				{
-					ImGui::PopItemFlag();
-				}
-
-				if (bIsSelectedScriptNameBlacklisted)
-				{
-					ImGui::PopStyleColor();
-				}
-
-				ImGui::SameLine();
-
-				ImGui::PushStyleColor(ImGui::GetColumnIndex(), { 1.f, 0.f, 0.f, 1.f });
-
-				if (ImGui::Button("Kill"))
-				{
-					ms_rgszKillScriptNamesBuffer.push_back(ms_rgszScriptNames[c_iSelectedItem]);
-				}
-
+			if (bIsSelectedScriptNameBlacklisted)
+			{
 				ImGui::PopStyleColor();
+			}
 
-				if (bIsSelectedScriptNameAboutToBeKilled && !bIsSelectedScriptUnpausable)
+			ImGui::SameLine();
+
+			ImGui::PushStyleColor(ImGui::GetColumnIndex(), { 1.f, 0.f, 0.f, 1.f });
+
+			if (ImGui::Button("Kill"))
+			{
+				std::unique_lock killScriptNamesLock(ms_killScriptNamesMutex);
+
+				ms_rgszKillScriptNamesBuffer.push_back(szSelectedScriptName);
+
+				killScriptNamesLock.unlock();
+			}
+
+			ImGui::PopStyleColor();
+
+			if (bIsSelectedScriptNameAboutToBeKilled && !bIsSelectedScriptUnpausable)
+			{
+				ImGui::PopItemFlag();
+			}
+
+			ImGui::SameLine();
+
+			// Store current state (so PopItemFlag won't be unjustify called)
+			bool bIsNewScriptWindowOpen = ms_bIsNewScriptWindowOpen;
+
+			if (bIsNewScriptWindowOpen || ms_bDoDispatchNewScript)
+			{
+				ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+			}
+
+			if (ImGui::Button("Start New Script"))
+			{
+				ms_bIsNewScriptWindowOpen = true;
+			}
+
+			if (bIsNewScriptWindowOpen || ms_bDoDispatchNewScript)
+			{
+				ImGui::PopItemFlag();
+			}
+
+			if (ms_pbUserPause)
+			{
+				if (ImGui::Button(ms_bPauseGameOnOverlay ? "Pause Game: On" : "Pause Game: Off"))
 				{
-					ImGui::PopItemFlag();
+					ms_bPauseGameOnOverlay = !ms_bPauseGameOnOverlay;
+				}
+
+				ImGui::SameLine();
+			}
+
+			if (!ms_pbUserPause || !ms_bPauseGameOnOverlay)
+			{
+				if (ImGui::Button(ms_bBlockKeyboardInputs ? "Block Keyboard Inputs: On" : "Block Keyboard Inputs: Off"))
+				{
+					ms_bBlockKeyboardInputs = !ms_bBlockKeyboardInputs;
+				}
+			}
+
+			ImGui::End();
+
+			if (ms_bIsNewScriptWindowOpen)
+			{
+				ImGui::Begin("New Script", NULL, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize);
+
+				ImGui::SetWindowSize({ 400.f, 100.f });
+
+				ImGui::InputText("Script Name", ms_rgchNewScriptNameBuffer, SCRIPT_NEW_SCRIPT_NAME_BUFFER_SIZE);
+
+				ImGui::InputInt("Script Stack Size", &ms_iNewScriptStackSize);
+
+				if (ImGui::Button("Cancel"))
+				{
+					ClearNewScriptWindowState();
 				}
 
 				ImGui::SameLine();
 
-				// Store current state (so PopItemFlag won't be unjustify called)
-				bool bIsNewScriptWindowOpen = ms_bIsNewScriptWindowOpen;
-
-				if (bIsNewScriptWindowOpen)
+				if (ImGui::Button("Start"))
 				{
-					ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
-				}
+					ms_bDoDispatchNewScript = true;
 
-				if (ImGui::Button("Start New Script"))
-				{
-					ms_bIsNewScriptWindowOpen = true;
-				}
-
-				if (bIsNewScriptWindowOpen)
-				{
-					ImGui::PopItemFlag();
-				}
-
-				if (ms_pbUserPause)
-				{
-					if (ImGui::Button(ms_bPauseGameOnOverlay ? "Pause Game: On" : "Pause Game: Off"))
-					{
-						ms_bPauseGameOnOverlay = !ms_bPauseGameOnOverlay;
-					}
-
-					ImGui::SameLine();
-				}
-
-				if (!ms_pbUserPause || !ms_bPauseGameOnOverlay)
-				{
-					if (ImGui::Button(ms_bBlockKeyboardInputs ? "Block Keyboard Inputs: On" : "Block Keyboard Inputs: Off"))
-					{
-						ms_bBlockKeyboardInputs = !ms_bBlockKeyboardInputs;
-					}
+					ms_bIsNewScriptWindowOpen = false;
 				}
 
 				ImGui::End();
-
-				if (ms_bIsNewScriptWindowOpen)
-				{
-					ImGui::Begin("New Script", NULL, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize);
-
-					ImGui::SetWindowSize({ 400.f, 100.f });
-
-					ImGui::InputText("Script Name", ms_rgchNewScriptNameBuffer, SCRIPT_NEW_SCRIPT_NAME_BUFFER_SIZE);
-
-					ImGui::InputInt("Script Stack Size", &ms_iNewScriptStackSize);
-
-					if (ImGui::Button("Cancel"))
-					{
-						ClearNewScriptWindowState();
-					}
-
-					ImGui::SameLine();
-
-					if (ImGui::Button("Start"))
-					{
-						ms_bDoDispatchNewScript = true;
-
-						SetWindowOpenState(false);
-					}
-
-					ImGui::End();
-				}
 			}
 
 			ImGui::Render();
@@ -539,42 +554,35 @@ void Main::Loop()
 
 		MH_EnableHook(MH_ALL_HOOKS);
 
-		ms_bDidInit = true;
+		if (ms_pppThreads && ms_pcwThreads)
+		{
+			ms_bDidInit = true;
 
-		LOG("Completed Init!");
+			LOG("Completed Init!");
+		}
 	}
 
 	while (true)
 	{
 		WAIT(SCRIPT_UPDATE_LIST_FREQ);
 
-		if (ms_bIsMenuOpened || !ms_bDidImguiInit || !ms_pppThreads || !ms_pcwThreads)
+		if (!ms_bDidImguiInit)
 		{
 			continue;
 		}
 
-		ms_rgszScriptNames.clear();
-
-		rage::scrThread** ppThreads = *ms_pppThreads;
-
-		for (DWORD i = 0; i < *ms_pcwThreads; i++)
-		{
-			if (ppThreads[i]->m__dwRunningFlags /* Check if running */)
-			{
-				ms_rgszScriptNames.push_back(ppThreads[i]->m_szName);
-			}
-		}
-
-		ms_bScriptNamesGathered = true;
-
 		if (!ms_rgszKillScriptNamesBuffer.empty())
 		{
+			std::unique_lock killScriptNamesLock(ms_killScriptNamesMutex);
+
 			for (const std::string& szScriptName : ms_rgszKillScriptNamesBuffer)
 			{
 				TERMINATE_ALL_SCRIPTS_WITH_THIS_NAME(szScriptName.c_str());
 			}
 
 			ms_rgszKillScriptNamesBuffer.clear();
+
+			killScriptNamesLock.unlock();
 		}
 
 		if (ms_bDoDispatchNewScript)
@@ -613,11 +621,9 @@ void Main::LoopWindowActionsBlock()
 
 void Main::OnPresenceCallback(IDXGISwapChain* pSwapChain)
 {
-	if (!ms_bDidImguiInit)
+	if (!ms_bDidImguiInit && ms_bDidInit)
 	{
 		LOG("First IDXGISwapChain::Present cb call, initializing Dear ImGui");
-
-		ms_bDidImguiInit = true;
 
 		DXGI_SWAP_CHAIN_DESC swapChainDesc{};
 		pSwapChain->GetDesc(&swapChainDesc);
@@ -661,6 +667,8 @@ void Main::OnPresenceCallback(IDXGISwapChain* pSwapChain)
 		{
 			LOG("Saving Dear ImGui settings to " << IMGUI_FILENAME);
 		}
+
+		ms_bDidImguiInit = true;
 
 		LOG("Dear ImGui initialized!");
 	}
