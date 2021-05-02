@@ -1,6 +1,6 @@
 # Script Viewer
 
-![Screenshot](https://imgur.com/EINw45y.png)
+![Screenshot](https://i.imgur.com/MBvORgc.png)
 
 Script Viewer lets you easily view and modify (pause and kill) scripts in Grand Theft Auto V, along with the ability to easily start new ones in an easy to understand interface.
 
