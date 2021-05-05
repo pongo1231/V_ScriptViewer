@@ -17,22 +17,17 @@
 
 #pragma endregion
 
-static ID3D11DeviceContext* ms_pDeviceContext = nullptr;
-
-static HWND ms_hWnd = 0;
-
 static bool* ms_pbUserPause = nullptr;
 
 static rage::scrThread*** ms_pppThreads = nullptr;
 static WORD* ms_pcwThreads = nullptr;
 
-static std::unordered_map<std::string, ScriptProfile> ms_dcScriptProfiles;
+static std::unordered_map<DWORD, ScriptProfile> ms_dcScriptProfiles;
 
-static std::vector<std::string> ms_rgszBlacklistedScriptNames;
-static std::mutex ms_blacklistedScriptNamesMutex;
+static std::vector<DWORD> ms_rgdwBlacklistedScriptThreadIds;
+static std::mutex ms_blacklistedScriptThreadIdsMutex;
 
-static std::vector<std::string> ms_rgszKillScriptNamesBuffer;
-static std::mutex ms_killScriptNamesMutex;
+static std::atomic<DWORD> ms_rgdwKillScriptThreadId = 0;
 
 static bool ms_bDidInit = false;
 static bool ms_bDidImguiInit = false;
@@ -54,45 +49,30 @@ static inline void SetWindowOpenState(bool state)
 	ms_bHasMenuOpenStateJustChanged = true;
 }
 
-static inline [[nodiscard]] std::vector<std::string>::iterator GetBlacklistedScriptNameEntry(const std::string& szScriptName)
+static inline [[nodiscard]] bool IsScriptThreadIdPaused(DWORD dwThreadId)
 {
-	std::lock_guard lock(ms_blacklistedScriptNamesMutex);
+	std::lock_guard lock(ms_blacklistedScriptThreadIdsMutex);
 
-	return std::find(ms_rgszBlacklistedScriptNames.begin(), ms_rgszBlacklistedScriptNames.end(), szScriptName);
+	return std::find(ms_rgdwBlacklistedScriptThreadIds.begin(), ms_rgdwBlacklistedScriptThreadIds.end(), dwThreadId) != ms_rgdwBlacklistedScriptThreadIds.end();
 }
 
-static inline [[nodiscard]] bool IsScriptNameBlacklisted(const std::string& szScriptName)
+static inline void PauseScriptThreadId(DWORD dwThreadId)
 {
-	std::lock_guard lock(ms_blacklistedScriptNamesMutex);
+	std::lock_guard lock(ms_blacklistedScriptThreadIdsMutex);
 
-	return std::find(ms_rgszBlacklistedScriptNames.begin(), ms_rgszBlacklistedScriptNames.end(), szScriptName) != ms_rgszBlacklistedScriptNames.end();
+	ms_rgdwBlacklistedScriptThreadIds.push_back(dwThreadId);
 }
 
-static inline void BlacklistScriptName(const std::string& szScriptName)
+static inline void UnpauseScriptThreadId(DWORD dwThreadId)
 {
-	std::lock_guard lock(ms_blacklistedScriptNamesMutex);
+	std::lock_guard lock(ms_blacklistedScriptThreadIdsMutex);
 
-	ms_rgszBlacklistedScriptNames.push_back(szScriptName);
-}
+	const auto& itScriptThreadId = std::find(ms_rgdwBlacklistedScriptThreadIds.begin(), ms_rgdwBlacklistedScriptThreadIds.end(), dwThreadId);
 
-static inline void UnblacklistScriptName(const std::string& szScriptName)
-{
-	std::lock_guard lock(ms_blacklistedScriptNamesMutex);
-
-	const auto& itScriptName = std::find(ms_rgszBlacklistedScriptNames.begin(), ms_rgszBlacklistedScriptNames.end(), szScriptName);
-
-	if (itScriptName != ms_rgszBlacklistedScriptNames.end())
+	if (itScriptThreadId != ms_rgdwBlacklistedScriptThreadIds.end())
 	{
-		ms_rgszBlacklistedScriptNames.erase(itScriptName);
+		ms_rgdwBlacklistedScriptThreadIds.erase(itScriptThreadId);
 	}
-}
-
-static inline [[nodiscard]] bool IsScriptNameAboutToBeKilled(const std::string& szScriptName)
-{
-	std::lock_guard lock(ms_killScriptNamesMutex);
-
-	return std::find(ms_rgszKillScriptNamesBuffer.begin(), ms_rgszKillScriptNamesBuffer.end(), szScriptName)
-		!= ms_rgszKillScriptNamesBuffer.end();
 }
 
 static inline void ClearNewScriptWindowState()
@@ -187,7 +167,7 @@ static LRESULT HK_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	return OG_WndProc(hWnd, uMsg, wParam, lParam);
 }
 
-static void** ms_pPresentVftEntryAddr = 0;
+static void** ms_pPresentVftEntryAddr = nullptr;
 static HRESULT(*OG_OnPresence)(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UINT uiFlags);
 static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UINT uiFlags)
 {
@@ -225,28 +205,29 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 
 			if (ImGui::ListBoxHeader("", { 0, -50.f }))
 			{
-				for (WORD wScriptId = 0; wScriptId < *ms_pcwThreads; wScriptId++)
+				for (WORD wScriptIdx = 0; wScriptIdx < *ms_pcwThreads; wScriptIdx++)
 				{
-					if (!ppThreads[wScriptId]->_m_dwRunningFlags)
+					if (!ppThreads[wScriptIdx]->m_dwThreadId)
 					{
 						continue;
 					}
 
-					const char* szScriptName = ppThreads[wScriptId]->m_szName;
+					const char* szScriptName = ppThreads[wScriptIdx]->m_szName;
+					DWORD dwThreadId = ppThreads[wScriptIdx]->m_dwThreadId;
 
-					bool bIsScriptNameAboutToBeKilled = IsScriptNameAboutToBeKilled(szScriptName);
-					bool bIsScriptNameBlacklisted = IsScriptNameBlacklisted(szScriptName);
+					bool bIsScriptAboutToBeKilled = ms_rgdwKillScriptThreadId == dwThreadId;
+					bool bIsScriptPaused = IsScriptThreadIdPaused(dwThreadId);
 
-					if (bIsScriptNameAboutToBeKilled)
+					if (bIsScriptAboutToBeKilled)
 					{
 						ImGui::PushStyleColor(ImGui::GetColumnIndex(), { 1.f, 0.f, 0.f, 1.f });
 					}
-					else if (bIsScriptNameBlacklisted)
+					else if (bIsScriptPaused)
 					{
 						ImGui::PushStyleColor(ImGui::GetColumnIndex(), { 1.f, 1.f, 0.f, 1.f });
 					}
 
-					ScriptProfile& scriptProfile = ms_dcScriptProfiles[szScriptName];
+					ScriptProfile& scriptProfile = ms_dcScriptProfiles[dwThreadId];
 					DWORD64 qwTimestamp = GetTickCount64();
 
 					if (qwTimestamp > scriptProfile.m_qwLastProfileUpdatedTimestamp)
@@ -268,12 +249,12 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 						ossScriptText << " (" << scriptProfile.m_fCurExecutionTimeMs << " ms)";
 					}
 
-					if (ImGui::Selectable(ossScriptText.str().c_str(), wScriptId == c_iSelectedItem))
+					if (ImGui::Selectable(ossScriptText.str().c_str(), wScriptIdx == c_iSelectedItem))
 					{
-						c_iSelectedItem = wScriptId;
+						c_iSelectedItem = wScriptIdx;
 					}
 
-					if (bIsScriptNameAboutToBeKilled || bIsScriptNameBlacklisted)
+					if (bIsScriptAboutToBeKilled || bIsScriptPaused)
 					{
 						ImGui::PopStyleColor();
 					}
@@ -287,36 +268,36 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 			ImGui::Spacing();
 
 			std::string szSelectedScriptName = ppThreads[c_iSelectedItem]->m_szName;
+			DWORD dwSelectedThreadId = ppThreads[c_iSelectedItem]->m_dwThreadId;
 
 #ifdef RELOADABLE
 			bool bIsSelectedScriptUnpausable = szSelectedScriptName.find(".asi") != std::string::npos;
 #else
 			bool bIsSelectedScriptUnpausable = !_stricmp(szSelectedScriptName.c_str(), g_szFileName);
 #endif
+			bool bIsAnyScriptAboutToBeKilled = ms_rgdwKillScriptThreadId;
 
-			bool bIsSelectedScriptNameAboutToBeKilled = IsScriptNameAboutToBeKilled(szSelectedScriptName);
+			bool bIsSelectedScriptPaused = IsScriptThreadIdPaused(dwSelectedThreadId);
 
-			bool bIsSelectedScriptNameBlacklisted = IsScriptNameBlacklisted(szSelectedScriptName);
-
-			if (bIsSelectedScriptNameBlacklisted)
+			if (bIsSelectedScriptPaused)
 			{
 				ImGui::PushStyleColor(ImGui::GetColumnIndex(), { 1.f, 1.f, 0.f, 1.f });
 			}
 
-			if (bIsSelectedScriptUnpausable || bIsSelectedScriptNameAboutToBeKilled)
+			if (bIsSelectedScriptUnpausable || bIsAnyScriptAboutToBeKilled)
 			{
 				ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
 			}
 
-			if (ImGui::Button(bIsSelectedScriptNameBlacklisted ? "Unpause" : "Pause"))
+			if (ImGui::Button(bIsSelectedScriptPaused ? "Unpause" : "Pause"))
 			{
-				if (bIsSelectedScriptNameBlacklisted)
+				if (bIsSelectedScriptPaused)
 				{
-					UnblacklistScriptName(szSelectedScriptName);
+					UnpauseScriptThreadId(dwSelectedThreadId);
 				}
 				else
 				{
-					BlacklistScriptName(szSelectedScriptName);
+					PauseScriptThreadId(dwSelectedThreadId);
 				}
 			}
 
@@ -325,7 +306,7 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 				ImGui::PopItemFlag();
 			}
 
-			if (bIsSelectedScriptNameBlacklisted)
+			if (bIsSelectedScriptPaused)
 			{
 				ImGui::PopStyleColor();
 			}
@@ -336,16 +317,12 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 
 			if (ImGui::Button("Kill"))
 			{
-				std::unique_lock killScriptNamesLock(ms_killScriptNamesMutex);
-
-				ms_rgszKillScriptNamesBuffer.push_back(szSelectedScriptName);
-
-				killScriptNamesLock.unlock();
+				ms_rgdwKillScriptThreadId = dwSelectedThreadId;
 			}
 
 			ImGui::PopStyleColor();
 
-			if (bIsSelectedScriptNameAboutToBeKilled && !bIsSelectedScriptUnpausable)
+			if (bIsAnyScriptAboutToBeKilled && !bIsSelectedScriptUnpausable)
 			{
 				ImGui::PopItemFlag();
 			}
@@ -440,7 +417,7 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 	return OG_OnPresence(pSwapChain, uiSyncInterval, uiFlags);
 }
 
-static void** ms_pResizeBuffersAddr = 0;
+static void** ms_pResizeBuffersAddr = nullptr;
 static HRESULT(*OG_ResizeBuffers)(IDXGISwapChain* pSwapChain, UINT uiBufferCount, UINT uiWidth, UINT uiHeight, DXGI_FORMAT newFormat, UINT uiSwapChainFlags);
 static HRESULT HK_ResizeBuffers(IDXGISwapChain* pSwapChain, UINT uiBufferCount, UINT uiWidth, UINT uiHeight, DXGI_FORMAT newFormat, UINT uiSwapChainFlags)
 {
@@ -462,13 +439,13 @@ static HRESULT HK_ResizeBuffers(IDXGISwapChain* pSwapChain, UINT uiBufferCount, 
 static __int64(*OG_ScriptRunHook)(rage::scrThread* pScrThread);
 static __int64 HK_ScriptRunHook(rage::scrThread* pScrThread)
 {
-	if (IsScriptNameBlacklisted(pScrThread->m_szName))
+	if (IsScriptThreadIdPaused(pScrThread->m_dwThreadId))
 	{
 		return 0;
 	}
 	else if (ms_bIsMenuOpened)
 	{
-		ScriptProfile& scriptProfile = ms_dcScriptProfiles[pScrThread->m_szName];
+		ScriptProfile& scriptProfile = ms_dcScriptProfiles[pScrThread->m_dwThreadId];
 		
 		const auto& startTimestamp = std::chrono::high_resolution_clock::now();
 
@@ -590,18 +567,21 @@ void Main::Loop()
 			continue;
 		}
 
-		if (!ms_rgszKillScriptNamesBuffer.empty())
+		if (ms_rgdwKillScriptThreadId)
 		{
-			std::unique_lock killScriptNamesLock(ms_killScriptNamesMutex);
+			rage::scrThread** ppThreads = *ms_pppThreads;
 
-			for (const std::string& szScriptName : ms_rgszKillScriptNamesBuffer)
+			for (WORD wScriptIdx = 0; wScriptIdx < *ms_pcwThreads; wScriptIdx++)
 			{
-				TERMINATE_ALL_SCRIPTS_WITH_THIS_NAME(szScriptName.c_str());
+				if (ppThreads[wScriptIdx]->m_dwThreadId == ms_rgdwKillScriptThreadId)
+				{
+					ppThreads[wScriptIdx]->Kill();
+
+					break;
+				}
 			}
 
-			ms_rgszKillScriptNamesBuffer.clear();
-
-			killScriptNamesLock.unlock();
+			ms_rgdwKillScriptThreadId = 0;
 		}
 
 		if (ms_bDoDispatchNewScript)
@@ -647,8 +627,6 @@ void Main::OnPresenceCallback(IDXGISwapChain* pSwapChain)
 		DXGI_SWAP_CHAIN_DESC swapChainDesc{};
 		pSwapChain->GetDesc(&swapChainDesc);
 
-		ms_hWnd = swapChainDesc.OutputWindow;
-
 		Handle handle = Handle(*reinterpret_cast<DWORD64*>(pSwapChain));
 
 		ms_pPresentVftEntryAddr = handle.At(64).Get<void*>();
@@ -668,6 +646,7 @@ void Main::OnPresenceCallback(IDXGISwapChain* pSwapChain)
 		ID3D11Device* pDevice = nullptr;
 		pSwapChain->GetDevice(__uuidof(ID3D11Device), reinterpret_cast<void**>(&pDevice));
 
+		ID3D11DeviceContext* ms_pDeviceContext = nullptr;
 		pDevice->GetImmediateContext(&ms_pDeviceContext);
 
 		IMGUI_CHECKVERSION();
@@ -675,7 +654,7 @@ void Main::OnPresenceCallback(IDXGISwapChain* pSwapChain)
 
 		ImGui::StyleColorsDark();
 
-		ImGui_ImplWin32_Init(ms_hWnd);
+		ImGui_ImplWin32_Init(swapChainDesc.OutputWindow);
 		ImGui_ImplDX11_Init(pDevice, ms_pDeviceContext);
 
 		ImGui::GetIO().IniFilename = IMGUI_FILENAME;
