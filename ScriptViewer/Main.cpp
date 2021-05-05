@@ -21,9 +21,6 @@ static ID3D11DeviceContext* ms_pDeviceContext = nullptr;
 
 static HWND ms_hWnd = 0;
 
-static DWORD64 ms_qwPresentVftEntryAddr = 0;
-static DWORD64 ms_qwResizeBuffersAddr = 0;
-
 static bool* ms_pbUserPause = nullptr;
 
 static rage::scrThread*** ms_pppThreads = nullptr;
@@ -190,6 +187,7 @@ static LRESULT HK_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	return OG_WndProc(hWnd, uMsg, wParam, lParam);
 }
 
+static void** ms_pPresentVftEntryAddr = 0;
 static HRESULT(*OG_OnPresence)(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UINT uiFlags);
 static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UINT uiFlags)
 {
@@ -229,12 +227,12 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 			{
 				for (WORD wScriptId = 0; wScriptId < *ms_pcwThreads; wScriptId++)
 				{
-					if (!ppThreads[wScriptId]->m__dwRunningFlags)
+					if (!ppThreads[wScriptId]->_m_dwRunningFlags)
 					{
 						continue;
 					}
 
-					std::string szScriptName = ppThreads[wScriptId]->m_szName;
+					const char* szScriptName = ppThreads[wScriptId]->m_szName;
 
 					bool bIsScriptNameAboutToBeKilled = IsScriptNameAboutToBeKilled(szScriptName);
 					bool bIsScriptNameBlacklisted = IsScriptNameBlacklisted(szScriptName);
@@ -263,8 +261,9 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 					std::ostringstream ossScriptText;
 					ossScriptText << szScriptName;
 
-					// Doesn't work for .asi scripts, no profiling for ya!
-					if (szScriptName != "control_thread" && szScriptName.find(".asi") == std::string::npos)
+#ifdef RELOADABLE
+					if (strcmp(szScriptName, "control_thread") && !strstr(szScriptName, ".asi"))
+#endif
 					{
 						ossScriptText << " (" << scriptProfile.m_fCurExecutionTimeMs << " ms)";
 					}
@@ -289,11 +288,15 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 
 			std::string szSelectedScriptName = ppThreads[c_iSelectedItem]->m_szName;
 
+#ifdef RELOADABLE
 			bool bIsSelectedScriptUnpausable = szSelectedScriptName.find(".asi") != std::string::npos;
+#else
+			bool bIsSelectedScriptUnpausable = !_stricmp(szSelectedScriptName.c_str(), g_szFileName);
+#endif
+
 			bool bIsSelectedScriptNameAboutToBeKilled = IsScriptNameAboutToBeKilled(szSelectedScriptName);
 
-			const auto& itSelectedScriptBlacklistedEntry = GetBlacklistedScriptNameEntry(szSelectedScriptName);
-			bool bIsSelectedScriptNameBlacklisted = itSelectedScriptBlacklistedEntry != ms_rgszBlacklistedScriptNames.end();
+			bool bIsSelectedScriptNameBlacklisted = IsScriptNameBlacklisted(szSelectedScriptName);
 
 			if (bIsSelectedScriptNameBlacklisted)
 			{
@@ -437,6 +440,7 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 	return OG_OnPresence(pSwapChain, uiSyncInterval, uiFlags);
 }
 
+static void** ms_pResizeBuffersAddr = 0;
 static HRESULT(*OG_ResizeBuffers)(IDXGISwapChain* pSwapChain, UINT uiBufferCount, UINT uiWidth, UINT uiHeight, DXGI_FORMAT newFormat, UINT uiSwapChainFlags);
 static HRESULT HK_ResizeBuffers(IDXGISwapChain* pSwapChain, UINT uiBufferCount, UINT uiWidth, UINT uiHeight, DXGI_FORMAT newFormat, UINT uiSwapChainFlags)
 {
@@ -455,8 +459,8 @@ static HRESULT HK_ResizeBuffers(IDXGISwapChain* pSwapChain, UINT uiBufferCount, 
 	return hResult;
 }
 
-static __int64(*OG_rage__scrThread__Run)(rage::scrThread* pScrThread);
-static __int64 HK_rage__scrThread__Run(rage::scrThread* pScrThread)
+static __int64(*OG_ScriptRunHook)(rage::scrThread* pScrThread);
+static __int64 HK_ScriptRunHook(rage::scrThread* pScrThread)
 {
 	if (IsScriptNameBlacklisted(pScrThread->m_szName))
 	{
@@ -468,7 +472,7 @@ static __int64 HK_rage__scrThread__Run(rage::scrThread* pScrThread)
 		
 		const auto& startTimestamp = std::chrono::high_resolution_clock::now();
 
-		__int64 result = OG_rage__scrThread__Run(pScrThread);
+		__int64 result = OG_ScriptRunHook(pScrThread);
 
 		__int64 llExecutionTime = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - startTimestamp).count();
 
@@ -480,7 +484,7 @@ static __int64 HK_rage__scrThread__Run(rage::scrThread* pScrThread)
 		return result;
 	}
 
-	return OG_rage__scrThread__Run(pScrThread);
+	return OG_ScriptRunHook(pScrThread);
 }
 
 void Main::Uninit()
@@ -495,8 +499,15 @@ void Main::Uninit()
 
 	MH_Uninitialize();
 
-	Memory::Write<void*>(reinterpret_cast<void**>(ms_qwPresentVftEntryAddr), reinterpret_cast<void*>(*OG_OnPresence));
-	Memory::Write<void*>(reinterpret_cast<void**>(ms_qwResizeBuffersAddr), reinterpret_cast<void*>(*OG_ResizeBuffers));
+	if (ms_pPresentVftEntryAddr)
+	{
+		Memory::Write<void*>(ms_pPresentVftEntryAddr, *OG_OnPresence);
+	}
+
+	if (ms_pResizeBuffersAddr)
+	{
+		Memory::Write<void*>(reinterpret_cast<void**>(ms_pResizeBuffersAddr), *OG_ResizeBuffers);
+	}
 }
 
 void Main::Loop()
@@ -515,7 +526,7 @@ void Main::Loop()
 		handle = Memory::FindPattern("48 8B C4 48 89 58 08 4C 89 48 20 55 56 57 41 54 41 55 41 56 41 57 48 8D 68 A1 48 81 EC F0 00 00 00");
 		if (handle.IsValid())
 		{
-			MH_CreateHook(handle.Get<void>(), HK_WndProc, reinterpret_cast<void**>(&OG_WndProc));
+			Memory::AddHook(handle.Get<void>(), HK_WndProc, &OG_WndProc);
 
 			LOG("Hooked WndProc");
 		}
@@ -541,15 +552,23 @@ void Main::Loop()
 		{
 			ms_pcwThreads = handle.At(2).Into().Get<WORD>();
 
-			LOG("Found rage::scrThread::_sm_nThreads");
+			LOG("Found rage::scrThread::_sm_cwThreads");
 		}
 
+#ifdef RELOADABLE
 		handle = Memory::FindPattern("48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 48 83 EC 20 48 8D 81 D0 00 00 00");
+#else
+		handle = Memory::FindPattern("80 3D ? ? ? ? ? F3 0F 10 0D ? ? ? ? F3 0F 59 0D");
+#endif
 		if (handle.IsValid())
 		{
-			MH_CreateHook(handle.Get<void>(), HK_rage__scrThread__Run, reinterpret_cast<void**>(&OG_rage__scrThread__Run));
+			Memory::AddHook(handle.Get<void>(), HK_ScriptRunHook, &OG_ScriptRunHook);
 
+#ifdef RELOADABLE
 			LOG("Hooked rage::scrThread::Run");
+#else
+			LOG("Hooked rage::scrThread::Update");
+#endif
 		}
 
 		MH_EnableHook(MH_ALL_HOOKS);
@@ -630,17 +649,19 @@ void Main::OnPresenceCallback(IDXGISwapChain* pSwapChain)
 
 		ms_hWnd = swapChainDesc.OutputWindow;
 
-		__int64 pVftFuncs = *reinterpret_cast<__int64*>(pSwapChain);
+		Handle handle = Handle(*reinterpret_cast<DWORD64*>(pSwapChain));
 
-		ms_qwPresentVftEntryAddr = pVftFuncs + 64;
-		OG_OnPresence = *reinterpret_cast<HRESULT(**)(IDXGISwapChain*, UINT, UINT)>(ms_qwPresentVftEntryAddr);
-		Memory::Write<void*>(reinterpret_cast<void**>(ms_qwPresentVftEntryAddr), reinterpret_cast<void*>(HK_OnPresence));
+		ms_pPresentVftEntryAddr = handle.At(64).Get<void*>();
+		OG_OnPresence = *reinterpret_cast<HRESULT(**)(IDXGISwapChain*, UINT, UINT)>(ms_pPresentVftEntryAddr);
+
+		Memory::Write<void*>(ms_pPresentVftEntryAddr, HK_OnPresence);
 
 		LOG("Hooked IDXGISwapChain::Present through vftable injection");
 
-		ms_qwResizeBuffersAddr = pVftFuncs + 104;
-		OG_ResizeBuffers = *reinterpret_cast<HRESULT(**)(IDXGISwapChain*, UINT, UINT, UINT, DXGI_FORMAT, UINT)>(ms_qwResizeBuffersAddr);
-		Memory::Write<void*>(reinterpret_cast<void**>(ms_qwResizeBuffersAddr), reinterpret_cast<void*>(HK_ResizeBuffers));
+		ms_pResizeBuffersAddr = handle.At(104).Get<void*>();
+		OG_ResizeBuffers = *reinterpret_cast<HRESULT(**)(IDXGISwapChain*, UINT, UINT, UINT, DXGI_FORMAT, UINT)>(ms_pResizeBuffersAddr);
+
+		Memory::Write<void*>(ms_pResizeBuffersAddr, HK_ResizeBuffers);
 
 		LOG("Hooked IDXGISwapChain::ResizeBuffers through vftable injection");
 

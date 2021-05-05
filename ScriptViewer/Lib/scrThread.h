@@ -5,14 +5,14 @@ namespace rage
 	struct scrThread
 	{
 		void** m_pVft;
-		DWORD m__dwRunningFlags;
+		DWORD _m_dwRunningFlags;
 		DWORD m_dwProgramId;
-		DWORD m_dwSomething2;
-		char m_pad2[188];
+		DWORD dwSomething2;
+		char pad[188];
 		char m_szName[32];
-		char m_pad3[100];
-		char m_chSomething3;
-		char m_pad4[3];
+		char pad3[100];
+		char chSomething3;
+		char pad4[3];
 	};
 }
 

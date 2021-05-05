@@ -6,6 +6,8 @@
 
 struct IDXGISwapChain;
 
+inline char g_szFileName[MAX_PATH];
+
 namespace Main
 {
 	void Uninit();

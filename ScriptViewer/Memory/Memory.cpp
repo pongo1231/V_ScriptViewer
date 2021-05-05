@@ -76,7 +76,7 @@ namespace Memory
 		return Handle();
 	}
 
-	MH_STATUS AddHook(void* pTarget, void* pDetour, void** pOrig)
+	MH_STATUS AddHook(void* pTarget, void* pDetour, void* pOrig)
 	{
 		MH_STATUS result = MH_CreateHook(pTarget, pDetour, reinterpret_cast<void**>(pOrig));
 

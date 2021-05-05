@@ -10,6 +10,9 @@ BOOL APIENTRY DllMain(HMODULE hInstance, DWORD reason, LPVOID lpReserved)
 	switch (reason)
 	{
 	case DLL_PROCESS_ATTACH:
+		GetModuleFileName(hInstance, g_szFileName, MAX_PATH);
+		strcpy_s(g_szFileName, strrchr(g_szFileName, '\\') + 1);
+
 		Memory::Init();
 
 		scriptRegister(hInstance, Main::Loop);

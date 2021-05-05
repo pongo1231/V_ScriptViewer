@@ -9,34 +9,34 @@ public:
 	Handle() : m_dwAddr(0) {}
 	Handle(DWORD64 addr) : m_dwAddr(addr) {}
 
-	inline bool IsValid() const
+	inline [[nodiscard]] bool IsValid() const
 	{
 		return m_dwAddr;
 	}
 
-	inline Handle At(int iOffset) const
+	inline [[nodiscard]] Handle At(int iOffset) const
 	{
 		return IsValid() ? m_dwAddr + iOffset : 0;
 	}
 
 	template<typename T>
-	inline T* Get() const
+	inline [[nodiscard]] T* Get() const
 	{
 		return reinterpret_cast<T*>(m_dwAddr);
 	}
 
 	template<typename T>
-	inline T Value() const
+	inline [[nodiscard]] T Value() const
 	{
 		return IsValid() ? *Get<T>() : 0;
 	}
 
-	inline DWORD64 Addr() const
+	inline [[nodiscard]] DWORD64 Addr() const
 	{
 		return m_dwAddr;
 	}
 
-	inline Handle Into() const
+	inline [[nodiscard]] Handle Into() const
 	{
 		if (IsValid())
 		{

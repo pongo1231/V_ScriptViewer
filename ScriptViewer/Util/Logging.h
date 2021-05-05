@@ -1,15 +1,10 @@
 #pragma once
 
-#include <wincon.h>
-
 #include <sstream>
 #include <fstream>
 #include <iostream>
-#include <string>
 
 inline std::ofstream g_log("scriptviewerlog.txt");
-
-#define _OSS std::ostringstream()
 
 #define __FILENAME__ (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
 
