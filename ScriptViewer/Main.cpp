@@ -27,7 +27,7 @@ static std::unordered_map<DWORD, ScriptProfile> ms_dcScriptProfiles;
 static std::vector<DWORD> ms_rgdwBlacklistedScriptThreadIds;
 static std::mutex ms_blacklistedScriptThreadIdsMutex;
 
-static std::atomic<DWORD> ms_rgdwKillScriptThreadId = 0;
+static std::atomic<DWORD> ms_dwKillScriptThreadId = 0;
 
 static bool ms_bDidInit = false;
 static bool ms_bDidImguiInit = false;
@@ -203,8 +203,20 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 
 			rage::scrThread** ppThreads = *ms_pppThreads;
 
-			if (ImGui::ListBoxHeader("", { 0, -50.f }))
+			if (ImGui::ListBoxHeader("", { 0, -73.f }))
 			{
+				DWORD64 qwTimestamp = GetTickCount64();
+
+				static DWORD64 c_qwLastProfileUpdatedTimestamp = qwTimestamp;
+
+				bool bDoNewProfileRound = false;
+				if (qwTimestamp > c_qwLastProfileUpdatedTimestamp)
+				{
+					c_qwLastProfileUpdatedTimestamp = qwTimestamp + SCRIPT_PROFILING_UPDATE_FREQ;
+
+					bDoNewProfileRound = true;
+				}
+
 				for (WORD wScriptIdx = 0; wScriptIdx < *ms_pcwThreads; wScriptIdx++)
 				{
 					if (!ppThreads[wScriptIdx]->m_dwThreadId)
@@ -215,7 +227,7 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 					const char* szScriptName = ppThreads[wScriptIdx]->m_szName;
 					DWORD dwThreadId = ppThreads[wScriptIdx]->m_dwThreadId;
 
-					bool bIsScriptAboutToBeKilled = ms_rgdwKillScriptThreadId == dwThreadId;
+					bool bIsScriptAboutToBeKilled = ms_dwKillScriptThreadId == dwThreadId;
 					bool bIsScriptPaused = IsScriptThreadIdPaused(dwThreadId);
 
 					if (bIsScriptAboutToBeKilled)
@@ -228,15 +240,10 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 					}
 
 					ScriptProfile& scriptProfile = ms_dcScriptProfiles[dwThreadId];
-					DWORD64 qwTimestamp = GetTickCount64();
 
-					if (qwTimestamp > scriptProfile.m_qwLastProfileUpdatedTimestamp)
+					if (bDoNewProfileRound)
 					{
-						scriptProfile.m_qwLastProfileUpdatedTimestamp = qwTimestamp + SCRIPT_PROFILING_UPDATE_FREQ;
-
-						scriptProfile.m_fCurExecutionTimeMs = scriptProfile.m_llLongestExecutionTimeNs / 1000000.f;
-
-						scriptProfile.m_llLongestExecutionTimeNs = 0;
+						scriptProfile.NewRound();
 					}
 
 					std::ostringstream ossScriptText;
@@ -246,7 +253,7 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 					if (strcmp(szScriptName, "control_thread") && !strstr(szScriptName, ".asi"))
 #endif
 					{
-						ossScriptText << " (" << scriptProfile.m_fCurExecutionTimeMs << " ms)";
+						ossScriptText << " (" << scriptProfile.Get() << " ms)";
 					}
 
 					if (ImGui::Selectable(ossScriptText.str().c_str(), wScriptIdx == c_iSelectedItem))
@@ -271,11 +278,11 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 			DWORD dwSelectedThreadId = ppThreads[c_iSelectedItem]->m_dwThreadId;
 
 #ifdef RELOADABLE
-			bool bIsSelectedScriptUnpausable = szSelectedScriptName.find(".asi") != std::string::npos;
+			bool bIsSelectedScriptUnpausable = szSelectedScriptName == "control_thread" || szSelectedScriptName.find(".asi") != std::string::npos;
 #else
 			bool bIsSelectedScriptUnpausable = !_stricmp(szSelectedScriptName.c_str(), g_szFileName);
 #endif
-			bool bIsAnyScriptAboutToBeKilled = ms_rgdwKillScriptThreadId;
+			bool bIsAnyScriptAboutToBeKilled = ms_dwKillScriptThreadId;
 
 			bool bIsSelectedScriptPaused = IsScriptThreadIdPaused(dwSelectedThreadId);
 
@@ -317,7 +324,7 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 
 			if (ImGui::Button("Kill"))
 			{
-				ms_rgdwKillScriptThreadId = dwSelectedThreadId;
+				ms_dwKillScriptThreadId = dwSelectedThreadId;
 			}
 
 			ImGui::PopStyleColor();
@@ -345,6 +352,22 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 			if (bIsNewScriptWindowOpen || ms_bDoDispatchNewScript)
 			{
 				ImGui::PopItemFlag();
+			}
+
+			if (ImGui::Button(ScriptProfile::ms_eProfileType == eScriptProfileType::HIGHEST_TIME ? "Profile Type: Highest Time"
+				: "Profile Type: Average Time"))
+			{
+				switch (ScriptProfile::ms_eProfileType)
+				{
+				case eScriptProfileType::HIGHEST_TIME:
+					ScriptProfile::ms_eProfileType = eScriptProfileType::AVERAGE_TIME;
+
+					break;
+				case eScriptProfileType::AVERAGE_TIME:
+					ScriptProfile::ms_eProfileType = eScriptProfileType::HIGHEST_TIME;
+
+					break;
+				}
 			}
 
 			if (ms_pbUserPause)
@@ -451,12 +474,9 @@ static __int64 HK_ScriptRunHook(rage::scrThread* pScrThread)
 
 		__int64 result = OG_ScriptRunHook(pScrThread);
 
-		__int64 llExecutionTime = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - startTimestamp).count();
+		DWORD64 qwExecutionTime = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - startTimestamp).count();
 
-		if (llExecutionTime > scriptProfile.m_llLongestExecutionTimeNs)
-		{
-			scriptProfile.m_llLongestExecutionTimeNs = llExecutionTime;
-		}
+		scriptProfile.Add(qwExecutionTime);
 	
 		return result;
 	}
@@ -483,7 +503,7 @@ void Main::Uninit()
 
 	if (ms_pResizeBuffersAddr)
 	{
-		Memory::Write<void*>(reinterpret_cast<void**>(ms_pResizeBuffersAddr), *OG_ResizeBuffers);
+		Memory::Write<void*>(ms_pResizeBuffersAddr, *OG_ResizeBuffers);
 	}
 }
 
@@ -567,13 +587,13 @@ void Main::Loop()
 			continue;
 		}
 
-		if (ms_rgdwKillScriptThreadId)
+		if (ms_dwKillScriptThreadId)
 		{
 			rage::scrThread** ppThreads = *ms_pppThreads;
 
 			for (WORD wScriptIdx = 0; wScriptIdx < *ms_pcwThreads; wScriptIdx++)
 			{
-				if (ppThreads[wScriptIdx]->m_dwThreadId == ms_rgdwKillScriptThreadId)
+				if (ppThreads[wScriptIdx]->m_dwThreadId == ms_dwKillScriptThreadId)
 				{
 					ppThreads[wScriptIdx]->Kill();
 
@@ -581,7 +601,7 @@ void Main::Loop()
 				}
 			}
 
-			ms_rgdwKillScriptThreadId = 0;
+			ms_dwKillScriptThreadId = 0;
 		}
 
 		if (ms_bDoDispatchNewScript)
