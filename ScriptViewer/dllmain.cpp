@@ -23,6 +23,8 @@ BOOL APIENTRY DllMain(HMODULE hInstance, DWORD reason, LPVOID lpReserved)
 
 		break;
 	case DLL_PROCESS_DETACH:
+		LOG(Memory::FindPattern("88 05 ? ? ? ? E8 ? ? ? ? 48 8B CB 48 8B 5C 24 30").At(1).Into().Value<bool>());
+
 		Main::Uninit();
 
 		Memory::Uninit();

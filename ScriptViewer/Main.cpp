@@ -520,10 +520,10 @@ void Main::Loop()
 		Handle handle;
 
 		// Had no luck with SetWindowsHookEx so we're just going to straight up hook WndProc
-		handle = Memory::FindPattern("48 8B C4 48 89 58 08 4C 89 48 20 55 56 57 41 54 41 55 41 56 41 57 48 8D 68 A1 48 81 EC F0 00 00 00");
+		handle = Memory::FindPattern("48 8D 05 ? ? ? ? 33 C9 44 89 75 20");
 		if (handle.IsValid())
 		{
-			Memory::AddHook(handle.Get<void>(), HK_WndProc, &OG_WndProc);
+			Memory::AddHook(handle.At(2).Into().Get<void>(), HK_WndProc, &OG_WndProc);
 
 			LOG("Hooked WndProc");
 		}
