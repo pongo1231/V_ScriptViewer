@@ -22,6 +22,9 @@ static bool* ms_pbUserPause = nullptr;
 static rage::scrThread*** ms_pppThreads = nullptr;
 static WORD* ms_pcwThreads = nullptr;
 
+static rage::_ScriptStack** ms_ppStacks = nullptr;
+static WORD* ms_pcwStacks = nullptr;
+
 static std::unordered_map<DWORD, ScriptProfile> ms_dcScriptProfiles;
 
 static std::vector<DWORD> ms_rgdwBlacklistedScriptThreadIds;
@@ -34,6 +37,8 @@ static bool ms_bDidImguiInit = false;
 static bool ms_bIsMenuOpened = false;
 static bool ms_bHasMenuOpenStateJustChanged = false;
 
+static bool ms_bShowExecutionTimes = false;
+static bool ms_bShowStackSizes = false;
 static bool ms_bPauseGameOnOverlay = true;
 static bool ms_bBlockKeyboardInputs = true;
 
@@ -84,6 +89,21 @@ static inline void ClearNewScriptWindowState()
 	ms_iNewScriptStackSize = 0;
 
 	ms_bDoDispatchNewScript = false;
+}
+
+static inline [[nodiscard]] rage::_ScriptStack* GetScriptStack(rage::scrThread* pThread)
+{
+	rage::_ScriptStack* pStacks = *ms_ppStacks;
+
+	for (WORD wStackIdx = 0; wStackIdx < *ms_pcwStacks; wStackIdx++)
+	{
+		if (pStacks[wStackIdx].m_pScrThread == pThread)
+		{
+			return &pStacks[wStackIdx];
+		}
+	}
+
+	return nullptr;
 }
 
 static LRESULT(*OG_WndProc)(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -203,7 +223,7 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 
 			rage::scrThread** ppThreads = *ms_pppThreads;
 
-			if (ImGui::ListBoxHeader("", { 0, -73.f }))
+			if (ImGui::ListBoxHeader("", { 0, -96.f }))
 			{
 				DWORD64 qwTimestamp = GetTickCount64();
 
@@ -219,13 +239,15 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 
 				for (WORD wScriptIdx = 0; wScriptIdx < *ms_pcwThreads; wScriptIdx++)
 				{
-					if (!ppThreads[wScriptIdx]->m_dwThreadId)
+					rage::scrThread* pThread = ppThreads[wScriptIdx];
+
+					if (!pThread->m_dwThreadId)
 					{
 						continue;
 					}
 
-					const char* szScriptName = ppThreads[wScriptIdx]->m_szName;
-					DWORD dwThreadId = ppThreads[wScriptIdx]->m_dwThreadId;
+					const char* szScriptName = pThread->m_szName;
+					DWORD dwThreadId = pThread->m_dwThreadId;
 
 					bool bIsScriptAboutToBeKilled = ms_dwKillScriptThreadId == dwThreadId;
 					bool bIsScriptPaused = IsScriptThreadIdPaused(dwThreadId);
@@ -246,14 +268,29 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 						scriptProfile.NewRound();
 					}
 
+					bool bIsCustomThread = !strcmp(szScriptName, "control_thread") || strstr(szScriptName, ".asi");
+
 					std::ostringstream ossScriptText;
 					ossScriptText << szScriptName;
 
 #ifdef RELOADABLE
-					if (strcmp(szScriptName, "control_thread") && !strstr(szScriptName, ".asi"))
+					if (!bIsCustomThread)
 #endif
 					{
-						ossScriptText << " (" << scriptProfile.Get() << " ms)";
+						if (ms_bShowExecutionTimes)
+						{
+							ossScriptText << " | " << scriptProfile.Get() << " ms";
+						}
+					}
+
+					if (!bIsCustomThread && ms_bShowStackSizes)
+					{
+						rage::_ScriptStack* pStack = GetScriptStack(pThread);
+
+						if (pStack)
+						{
+							ossScriptText << " | Stack Size: " << pStack->m_dwStackSize;
+						}
 					}
 
 					if (ImGui::Selectable(ossScriptText.str().c_str(), wScriptIdx == c_iSelectedItem))
@@ -354,20 +391,35 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 				ImGui::PopItemFlag();
 			}
 
-			if (ImGui::Button(ScriptProfile::ms_eProfileType == eScriptProfileType::HIGHEST_TIME ? "Profile Type: Highest Time"
-				: "Profile Type: Average Time"))
+			if (ImGui::Button(ms_bShowExecutionTimes ? "Show Execution Times: On" : "Show Execution Times: Off"))
 			{
-				switch (ScriptProfile::ms_eProfileType)
+				ms_bShowExecutionTimes = !ms_bShowExecutionTimes;
+			}
+
+			if (ms_bShowExecutionTimes)
+			{
+				ImGui::SameLine();
+
+				if (ImGui::Button(ScriptProfile::ms_eProfileType == eScriptProfileType::HIGHEST_TIME ? "Profile Type: Highest Time"
+					: "Profile Type: Average Time"))
 				{
-				case eScriptProfileType::HIGHEST_TIME:
-					ScriptProfile::ms_eProfileType = eScriptProfileType::AVERAGE_TIME;
+					switch (ScriptProfile::ms_eProfileType)
+					{
+					case eScriptProfileType::HIGHEST_TIME:
+						ScriptProfile::ms_eProfileType = eScriptProfileType::AVERAGE_TIME;
 
-					break;
-				case eScriptProfileType::AVERAGE_TIME:
-					ScriptProfile::ms_eProfileType = eScriptProfileType::HIGHEST_TIME;
+						break;
+					case eScriptProfileType::AVERAGE_TIME:
+						ScriptProfile::ms_eProfileType = eScriptProfileType::HIGHEST_TIME;
 
-					break;
+						break;
+					}
 				}
+			}
+
+			if (ms_ppStacks && ms_pcwStacks && ImGui::Button(ms_bShowStackSizes ? "Show Stack Sizes: On" : "Show Stack Sizes: Off"))
+			{
+				ms_bShowStackSizes = !ms_bShowStackSizes;
 			}
 
 			if (ms_pbUserPause)
@@ -550,6 +602,22 @@ void Main::Loop()
 			ms_pcwThreads = handle.At(2).Into().Get<WORD>();
 
 			LOG("Found rage::scrThread::_sm_cwThreads");
+		}
+
+		handle = Memory::FindPattern("48 89 05 ? ? ? ? EB 07 48 89 1D ? ? ? ? 66 89 35 ? ? ? ? 85 FF");
+		if (handle.IsValid())
+		{
+			ms_ppStacks = handle.At(2).Into().Get<rage::_ScriptStack*>();
+
+			LOG("Found rage::scrThread::sm_Stacks");
+		}
+
+		handle = Memory::FindPattern("66 89 35 ? ? ? ? 85 FF");
+		if (handle.IsValid())
+		{
+			ms_pcwStacks = handle.At(2).Into().Get<WORD>();
+
+			LOG("Found rage::scrThread::_sm_cwStacks");
 		}
 
 #ifdef RELOADABLE

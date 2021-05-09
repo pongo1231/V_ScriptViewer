@@ -11,6 +11,7 @@
 
 #include "Lib/scrThread.h"
 #include "Lib/GtaThread.h"
+#include "Lib/ScriptStack.h"
 
 #include "../vendor/scripthookv/inc/main.h"
 #include "../vendor/scripthookv/inc/natives.h"

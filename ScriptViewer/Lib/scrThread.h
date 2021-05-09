@@ -2,8 +2,9 @@
 
 namespace rage
 {
-	struct scrThread
+	class scrThread
 	{
+	public:
 		DWORD m_dwThreadId;
 		DWORD m_dwProgramId;
 		DWORD dwSomething2;
