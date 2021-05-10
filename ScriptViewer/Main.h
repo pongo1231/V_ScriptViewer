@@ -13,5 +13,4 @@ namespace Main
 	void Uninit();
 	void Loop();
 	void LoopWindowActionsBlock();
-	void OnPresenceCallback(IDXGISwapChain* swapChain);
 };
