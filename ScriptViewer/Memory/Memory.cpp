@@ -18,6 +18,21 @@ namespace Memory
 		m_endAddr = m_baseAddr + moduleInfo.SizeOfImage;
 	}
 
+	void InitHooks()
+	{
+		MH_Initialize();
+
+		for (void(*pHook)() : Memory::g_rgHooks)
+		{
+			pHook();
+		}
+	}
+
+	void FinishHooks()
+	{
+		MH_EnableHook(MH_ALL_HOOKS);
+	}
+
 	void Uninit()
 	{
 

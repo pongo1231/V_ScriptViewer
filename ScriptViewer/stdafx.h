@@ -6,10 +6,13 @@
 
 #include "Memory/Memory.h"
 #include "Memory/Handle.h"
+#include "Memory/Hook.h"
+#include "Memory/Hwnd.h"
 
 #include "Util/Logging.h"
 
 #include "Lib/scrThread.h"
+#include "Lib/fwTimer.h"
 
 #include "../vendor/scripthookv/inc/main.h"
 #include "../vendor/scripthookv/inc/natives.h"

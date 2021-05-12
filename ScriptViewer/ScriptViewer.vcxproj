@@ -156,8 +156,14 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="dllmain.cpp" />
+    <ClCompile Include="Lib\fwTimer.cpp" />
+    <ClCompile Include="Lib\scrThread.cpp" />
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="Memory\Hwnd.cpp" />
     <ClCompile Include="Memory\Memory.cpp" />
+    <ClInclude Include="Lib\fwTimer.h" />
+    <ClInclude Include="Memory\Hook.h" />
+    <ClInclude Include="Memory\Hwnd.h" />
     <ClInclude Include="ScriptProfile.h" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

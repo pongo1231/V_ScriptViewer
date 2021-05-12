@@ -17,10 +17,6 @@
 
 #pragma endregion
 
-static HWND* ms_phWnd = nullptr;
-
-static bool* ms_pbUserPause = nullptr;
-
 static std::unordered_map<DWORD, ScriptProfile> ms_dcScriptProfiles;
 
 static std::vector<DWORD> ms_rgdwBlacklistedScriptThreadIds;
@@ -89,9 +85,9 @@ static inline void ClearNewScriptWindowState()
 
 static inline [[nodiscard]] rage::_scrStack* GetScriptStack(rage::scrThread* pThread)
 {
-	for (WORD wStackIdx = 0; wStackIdx < *rage::scrThread::_sm_cwStacks; wStackIdx++)
+	for (WORD wStackIdx = 0; wStackIdx < *rage::scrThread::ms_pcwStacks; wStackIdx++)
 	{
-		rage::_scrStack stack = rage::scrThread::sm_Stacks[wStackIdx];
+		rage::_scrStack stack = rage::scrThread::ms_pStacks[wStackIdx];
 
 		if (stack.m_pScrThread == pThread)
 		{
@@ -192,9 +188,6 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 		ID3D11Device* pDevice = nullptr;
 		pSwapChain->GetDevice(__uuidof(ID3D11Device), reinterpret_cast<void**>(&pDevice));
 
-		DXGI_SWAP_CHAIN_DESC swapChainDesc{};
-		pSwapChain->GetDesc(&swapChainDesc);
-
 		ID3D11DeviceContext* ms_pDeviceContext = nullptr;
 		pDevice->GetImmediateContext(&ms_pDeviceContext);
 
@@ -203,7 +196,7 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 
 		ImGui::StyleColorsDark();
 
-		ImGui_ImplWin32_Init(swapChainDesc.OutputWindow);
+		ImGui_ImplWin32_Init(Memory::g_hWnd);
 		ImGui_ImplDX11_Init(pDevice, ms_pDeviceContext);
 
 		ImGui::GetIO().IniFilename = IMGUI_FILENAME;
@@ -228,9 +221,9 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 			ms_bHasMenuOpenStateJustChanged = false;
 		}
 
-		if (ms_pbUserPause)
+		if (rage::fwTimer::ms_pbUserPause)
 		{
-			*ms_pbUserPause = ms_bPauseGameOnOverlay;
+			*rage::fwTimer::ms_pbUserPause = ms_bPauseGameOnOverlay;
 		}
 
 		ShowCursor(true);
@@ -263,9 +256,9 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 				bDoNewProfileRound = true;
 			}
 
-			for (WORD wScriptIdx = 0; wScriptIdx < *rage::scrThread::_sm_cwThreads; wScriptIdx++)
+			for (WORD wScriptIdx = 0; wScriptIdx < *rage::scrThread::ms_pcwThreads; wScriptIdx++)
 			{
-				rage::scrThread* pThread = rage::scrThread::sm_Threads[wScriptIdx];
+				rage::scrThread* pThread = rage::scrThread::ms_ppThreads[wScriptIdx];
 
 				if (!pThread->m_dwThreadId)
 				{
@@ -337,9 +330,9 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 
 		ImGui::Spacing();
 
-		c_iSelectedItem = min(c_iSelectedItem, *rage::scrThread::_sm_cwThreads);
+		c_iSelectedItem = min(c_iSelectedItem, *rage::scrThread::ms_pcwThreads);
 
-		rage::scrThread* pThread = rage::scrThread::sm_Threads[c_iSelectedItem];
+		rage::scrThread* pThread = rage::scrThread::ms_ppThreads[c_iSelectedItem];
 
 		std::string szSelectedScriptName = pThread->m_szName;
 		DWORD dwSelectedThreadId = pThread->m_dwThreadId;
@@ -447,12 +440,12 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 			}
 		}
 
-		if (rage::scrThread::sm_Stacks && rage::scrThread::_sm_cwStacks && ImGui::Button(ms_bShowStackSizes ? "Show Stack Sizes: On" : "Show Stack Sizes: Off"))
+		if (rage::scrThread::ms_pStacks && rage::scrThread::ms_pcwStacks && ImGui::Button(ms_bShowStackSizes ? "Show Stack Sizes: On" : "Show Stack Sizes: Off"))
 		{
 			ms_bShowStackSizes = !ms_bShowStackSizes;
 		}
 
-		if (ms_pbUserPause)
+		if (rage::fwTimer::ms_pbUserPause)
 		{
 			if (ImGui::Button(ms_bPauseGameOnOverlay ? "Pause Game: On" : "Pause Game: Off"))
 			{
@@ -462,7 +455,7 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 			ImGui::SameLine();
 		}
 
-		if (!ms_pbUserPause || !ms_bPauseGameOnOverlay)
+		if (!rage::fwTimer::ms_pbUserPause || !ms_bPauseGameOnOverlay)
 		{
 			if (ImGui::Button(ms_bBlockKeyboardInputs ? "Block Keyboard Inputs: On" : "Block Keyboard Inputs: Off"))
 			{
@@ -509,9 +502,9 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 		{
 			ms_bHasMenuOpenStateJustChanged = false;
 
-			if (ms_pbUserPause)
+			if (rage::fwTimer::ms_pbUserPause)
 			{
-				*ms_pbUserPause = false;
+				*rage::fwTimer::ms_pbUserPause = false;
 			}
 
 			ShowCursor(false);
@@ -603,7 +596,7 @@ static bool InitSwapChainHooks()
 
 	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	swapChainDesc.BufferCount = 1;
-	swapChainDesc.OutputWindow = *ms_phWnd;
+	swapChainDesc.OutputWindow = Memory::g_hWnd;
 	swapChainDesc.Windowed = TRUE;
 	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
 	swapChainDesc.Flags = 0;
@@ -654,23 +647,9 @@ void Main::Loop()
 	}
 	else
 	{
-		MH_Initialize();
+		Memory::InitHooks();
 
 		Handle handle;
-
-		handle = Memory::FindPattern("E8 ? ? ? ? 45 8D 46 2F");
-		if (handle.IsValid())
-		{
-			ms_phWnd = handle.Into().At(0x79).Get<HWND>();
-
-			LOG("Found hWnd");
-		}
-		else
-		{
-			LOG("hWnd not found, aborting!");
-
-			return;
-		}
 
 		// Had no luck with SetWindowsHookEx so we're just going to straight up hook WndProc
 		handle = Memory::FindPattern("48 8D 05 ? ? ? ? 33 C9 44 89 75 20");
@@ -679,46 +658,6 @@ void Main::Loop()
 			Memory::AddHook(handle.At(2).Into().Get<void>(), HK_WndProc, &OG_WndProc);
 
 			LOG("Hooked WndProc");
-		}
-
-		handle = Memory::FindPattern("E8 ? ? ? ? F3 0F 10 44 24 4C 66 41 C7 46 18 01 00");
-		if (handle.IsValid())
-		{
-			ms_pbUserPause = handle.Into().At(0x5E).At(1).Into().Get<bool>();
-
-			LOG("Found rage::fwTimer::sm_bUserPause");
-		}
-
-		handle = Memory::FindPattern("48 8B 05 ? ? ? ? 48 89 0C 06");
-		if (handle.IsValid())
-		{
-			rage::scrThread::sm_Threads = *handle.At(2).Into().Get<rage::scrThread**>();
-
-			LOG("Found rage::scrThread::sm_Threads");
-		}
-
-		handle = Memory::FindPattern("66 89 3D ? ? ? ? 85 F6");
-		if (handle.IsValid())
-		{
-			rage::scrThread::_sm_cwThreads = handle.At(2).Into().Get<WORD>();
-
-			LOG("Found rage::scrThread::_sm_cwThreads");
-		}
-
-		handle = Memory::FindPattern("48 89 05 ? ? ? ? EB 07 48 89 1D ? ? ? ? 66 89 35 ? ? ? ? 85 FF");
-		if (handle.IsValid())
-		{
-			rage::scrThread::sm_Stacks = *handle.At(2).Into().Get<rage::_scrStack*>();
-
-			LOG("Found rage::scrThread::sm_Stacks");
-		}
-
-		handle = Memory::FindPattern("66 89 35 ? ? ? ? 85 FF");
-		if (handle.IsValid())
-		{
-			rage::scrThread::_sm_cwStacks = handle.At(2).Into().Get<WORD>();
-
-			LOG("Found rage::scrThread::_sm_cwStacks");
 		}
 
 #ifdef RELOADABLE
@@ -739,9 +678,9 @@ void Main::Loop()
 
 		if (InitSwapChainHooks())
 		{
-			MH_EnableHook(MH_ALL_HOOKS);
+			Memory::FinishHooks();
 
-			if (rage::scrThread::sm_Threads && rage::scrThread::_sm_cwThreads)
+			if (rage::scrThread::ms_ppThreads && rage::scrThread::ms_pcwThreads)
 			{
 				ms_bDidInit = true;
 
@@ -761,9 +700,9 @@ void Main::Loop()
 
 		if (ms_dwKillScriptThreadId)
 		{
-			for (WORD wScriptIdx = 0; wScriptIdx < *rage::scrThread::_sm_cwThreads; wScriptIdx++)
+			for (WORD wScriptIdx = 0; wScriptIdx < *rage::scrThread::ms_pcwThreads; wScriptIdx++)
 			{
-				rage::scrThread* pThread = rage::scrThread::sm_Threads[wScriptIdx];
+				rage::scrThread* pThread = rage::scrThread::ms_ppThreads[wScriptIdx];
 
 				if (pThread->m_dwThreadId == ms_dwKillScriptThreadId)
 				{

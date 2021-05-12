@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../Memory/Hook.h"
+
 typedef unsigned short WORD;
 
 namespace rage
@@ -16,11 +18,11 @@ namespace rage
 	class scrThread
 	{
 	public:
-		static inline scrThread** sm_Threads = nullptr;
-		static inline WORD* _sm_cwThreads = nullptr;
+		static inline scrThread** ms_ppThreads = nullptr;
+		static inline WORD* ms_pcwThreads = nullptr;
 
-		static inline _scrStack* sm_Stacks = nullptr;
-		static inline WORD* _sm_cwStacks = nullptr;
+		static inline _scrStack* ms_pStacks = nullptr;
+		static inline WORD* ms_pcwStacks = nullptr;
 
 		DWORD m_dwThreadId;
 		DWORD m_dwProgramId;

@@ -11,6 +11,8 @@ typedef HWND__* HWND;
 namespace Memory
 {
 	void Init();
+	void InitHooks();
+	void FinishHooks();
 	void Uninit();
 
 	Handle FindPattern(const std::string& szPattern);
