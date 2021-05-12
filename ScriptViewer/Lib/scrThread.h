@@ -1,10 +1,27 @@
 #pragma once
 
+typedef unsigned short WORD;
+
 namespace rage
 {
+	class scrThread;
+
+	struct _scrStack
+	{
+		rage::scrThread* m_pScrThread;
+		DWORD m_dwStackSize;
+		void* m_pAllocatedMemory;
+	};
+
 	class scrThread
 	{
 	public:
+		static inline scrThread** sm_Threads = nullptr;
+		static inline WORD* _sm_cwThreads = nullptr;
+
+		static inline _scrStack* sm_Stacks = nullptr;
+		static inline WORD* _sm_cwStacks = nullptr;
+
 		DWORD m_dwThreadId;
 		DWORD m_dwProgramId;
 		DWORD dwSomething2;

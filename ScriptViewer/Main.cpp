@@ -21,12 +21,6 @@ static HWND* ms_phWnd = nullptr;
 
 static bool* ms_pbUserPause = nullptr;
 
-static rage::scrThread*** ms_pppThreads = nullptr;
-static WORD* ms_pcwThreads = nullptr;
-
-static rage::_ScriptStack** ms_ppStacks = nullptr;
-static WORD* ms_pcwStacks = nullptr;
-
 static std::unordered_map<DWORD, ScriptProfile> ms_dcScriptProfiles;
 
 static std::vector<DWORD> ms_rgdwBlacklistedScriptThreadIds;
@@ -93,15 +87,15 @@ static inline void ClearNewScriptWindowState()
 	ms_bDoDispatchNewScript = false;
 }
 
-static inline [[nodiscard]] rage::_ScriptStack* GetScriptStack(rage::scrThread* pThread)
+static inline [[nodiscard]] rage::_scrStack* GetScriptStack(rage::scrThread* pThread)
 {
-	rage::_ScriptStack* pStacks = *ms_ppStacks;
-
-	for (WORD wStackIdx = 0; wStackIdx < *ms_pcwStacks; wStackIdx++)
+	for (WORD wStackIdx = 0; wStackIdx < *rage::scrThread::_sm_cwStacks; wStackIdx++)
 	{
-		if (pStacks[wStackIdx].m_pScrThread == pThread)
+		rage::_scrStack stack = rage::scrThread::sm_Stacks[wStackIdx];
+
+		if (stack.m_pScrThread == pThread)
 		{
-			return &pStacks[wStackIdx];
+			return &stack;
 		}
 	}
 
@@ -255,8 +249,6 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 
 		ImGui::PushItemWidth(-1);
 
-		rage::scrThread** ppThreads = *ms_pppThreads;
-
 		if (ImGui::ListBoxHeader("", { 0, -96.f }))
 		{
 			DWORD64 qwTimestamp = GetTickCount64();
@@ -271,9 +263,9 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 				bDoNewProfileRound = true;
 			}
 
-			for (WORD wScriptIdx = 0; wScriptIdx < *ms_pcwThreads; wScriptIdx++)
+			for (WORD wScriptIdx = 0; wScriptIdx < *rage::scrThread::_sm_cwThreads; wScriptIdx++)
 			{
-				rage::scrThread* pThread = ppThreads[wScriptIdx];
+				rage::scrThread* pThread = rage::scrThread::sm_Threads[wScriptIdx];
 
 				if (!pThread->m_dwThreadId)
 				{
@@ -319,7 +311,7 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 
 				if (!bIsCustomThread && ms_bShowStackSizes)
 				{
-					rage::_ScriptStack* pStack = GetScriptStack(pThread);
+					rage::_scrStack* pStack = GetScriptStack(pThread);
 
 					if (pStack)
 					{
@@ -345,8 +337,12 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 
 		ImGui::Spacing();
 
-		std::string szSelectedScriptName = ppThreads[c_iSelectedItem]->m_szName;
-		DWORD dwSelectedThreadId = ppThreads[c_iSelectedItem]->m_dwThreadId;
+		c_iSelectedItem = min(c_iSelectedItem, *rage::scrThread::_sm_cwThreads);
+
+		rage::scrThread* pThread = rage::scrThread::sm_Threads[c_iSelectedItem];
+
+		std::string szSelectedScriptName = pThread->m_szName;
+		DWORD dwSelectedThreadId = pThread->m_dwThreadId;
 
 #ifdef RELOADABLE
 		bool bIsSelectedScriptUnpausable = szSelectedScriptName == "control_thread" || szSelectedScriptName.find(".asi") != std::string::npos;
@@ -451,7 +447,7 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 			}
 		}
 
-		if (ms_ppStacks && ms_pcwStacks && ImGui::Button(ms_bShowStackSizes ? "Show Stack Sizes: On" : "Show Stack Sizes: Off"))
+		if (rage::scrThread::sm_Stacks && rage::scrThread::_sm_cwStacks && ImGui::Button(ms_bShowStackSizes ? "Show Stack Sizes: On" : "Show Stack Sizes: Off"))
 		{
 			ms_bShowStackSizes = !ms_bShowStackSizes;
 		}
@@ -573,8 +569,8 @@ void Main::Uninit()
 {
 	if (ms_bDidImguiInit)
 	{
-		ImGui_ImplWin32_Shutdown();
 		ImGui_ImplDX11_Shutdown();
+		ImGui_ImplWin32_Shutdown();
 
 		ImGui::DestroyContext();
 	}
@@ -696,7 +692,7 @@ void Main::Loop()
 		handle = Memory::FindPattern("48 8B 05 ? ? ? ? 48 89 0C 06");
 		if (handle.IsValid())
 		{
-			ms_pppThreads = handle.At(2).Into().Get<rage::scrThread**>();
+			rage::scrThread::sm_Threads = *handle.At(2).Into().Get<rage::scrThread**>();
 
 			LOG("Found rage::scrThread::sm_Threads");
 		}
@@ -704,7 +700,7 @@ void Main::Loop()
 		handle = Memory::FindPattern("66 89 3D ? ? ? ? 85 F6");
 		if (handle.IsValid())
 		{
-			ms_pcwThreads = handle.At(2).Into().Get<WORD>();
+			rage::scrThread::_sm_cwThreads = handle.At(2).Into().Get<WORD>();
 
 			LOG("Found rage::scrThread::_sm_cwThreads");
 		}
@@ -712,7 +708,7 @@ void Main::Loop()
 		handle = Memory::FindPattern("48 89 05 ? ? ? ? EB 07 48 89 1D ? ? ? ? 66 89 35 ? ? ? ? 85 FF");
 		if (handle.IsValid())
 		{
-			ms_ppStacks = handle.At(2).Into().Get<rage::_ScriptStack*>();
+			rage::scrThread::sm_Stacks = *handle.At(2).Into().Get<rage::_scrStack*>();
 
 			LOG("Found rage::scrThread::sm_Stacks");
 		}
@@ -720,7 +716,7 @@ void Main::Loop()
 		handle = Memory::FindPattern("66 89 35 ? ? ? ? 85 FF");
 		if (handle.IsValid())
 		{
-			ms_pcwStacks = handle.At(2).Into().Get<WORD>();
+			rage::scrThread::_sm_cwStacks = handle.At(2).Into().Get<WORD>();
 
 			LOG("Found rage::scrThread::_sm_cwStacks");
 		}
@@ -745,7 +741,7 @@ void Main::Loop()
 		{
 			MH_EnableHook(MH_ALL_HOOKS);
 
-			if (ms_pppThreads && ms_pcwThreads)
+			if (rage::scrThread::sm_Threads && rage::scrThread::_sm_cwThreads)
 			{
 				ms_bDidInit = true;
 
@@ -765,13 +761,13 @@ void Main::Loop()
 
 		if (ms_dwKillScriptThreadId)
 		{
-			rage::scrThread** ppThreads = *ms_pppThreads;
-
-			for (WORD wScriptIdx = 0; wScriptIdx < *ms_pcwThreads; wScriptIdx++)
+			for (WORD wScriptIdx = 0; wScriptIdx < *rage::scrThread::_sm_cwThreads; wScriptIdx++)
 			{
-				if (ppThreads[wScriptIdx]->m_dwThreadId == ms_dwKillScriptThreadId)
+				rage::scrThread* pThread = rage::scrThread::sm_Threads[wScriptIdx];
+
+				if (pThread->m_dwThreadId == ms_dwKillScriptThreadId)
 				{
-					ppThreads[wScriptIdx]->Kill();
+					pThread->Kill();
 
 					break;
 				}
