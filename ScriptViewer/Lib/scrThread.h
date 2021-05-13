@@ -3,6 +3,7 @@
 #include "../Memory/Hook.h"
 
 typedef unsigned short WORD;
+typedef unsigned long DWORD;
 
 namespace rage
 {

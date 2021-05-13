@@ -1,5 +1,7 @@
 #include <stdafx.h>
 
+#include "fwTimer.h"
+
 static void OnHook()
 {
 	Handle handle;

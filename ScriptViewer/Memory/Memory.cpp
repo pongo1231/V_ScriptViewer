@@ -35,7 +35,7 @@ namespace Memory
 
 	void Uninit()
 	{
-
+		MH_Uninitialize();
 	}
 
 	Handle FindPattern(const std::string& szPattern)

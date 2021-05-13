@@ -9,93 +9,17 @@
 // VK_Control as modifier
 #define SCRIPT_WINDOW_OPEN_KEY 0x4F // "O" key
 
-#define SCRIPT_UPDATE_LIST_FREQ 500
-
-#define SCRIPT_NEW_SCRIPT_NAME_BUFFER_SIZE 64
-
-#define SCRIPT_PROFILING_UPDATE_FREQ 3000
-
 #pragma endregion
-
-static std::unordered_map<DWORD, ScriptProfile> ms_dcScriptProfiles;
-
-static std::vector<DWORD> ms_rgdwBlacklistedScriptThreadIds;
-static std::mutex ms_blacklistedScriptThreadIdsMutex;
-
-static std::atomic<DWORD> ms_dwKillScriptThreadId = 0;
 
 static bool ms_bDidInit = false;
 static bool ms_bDidImguiInit = false;
-static bool ms_bIsMenuOpened = false;
 static bool ms_bHasMenuOpenStateJustChanged = false;
-
-static bool ms_bShowExecutionTimes = false;
-static bool ms_bShowStackSizes = false;
-static bool ms_bPauseGameOnOverlay = true;
-static bool ms_bBlockKeyboardInputs = true;
-
-static bool ms_bIsNewScriptWindowOpen = false;
-static char ms_rgchNewScriptNameBuffer[SCRIPT_NEW_SCRIPT_NAME_BUFFER_SIZE]{};
-static int ms_iNewScriptStackSize = 0;
-static bool ms_bDoDispatchNewScript = false;
 
 static inline void SetWindowOpenState(bool state)
 {
-	ms_bIsMenuOpened = state;
+	g_bIsMenuOpened = state;
 
 	ms_bHasMenuOpenStateJustChanged = true;
-}
-
-static inline [[nodiscard]] bool IsScriptThreadIdPaused(DWORD dwThreadId)
-{
-	std::lock_guard lock(ms_blacklistedScriptThreadIdsMutex);
-
-	return std::find(ms_rgdwBlacklistedScriptThreadIds.begin(), ms_rgdwBlacklistedScriptThreadIds.end(), dwThreadId) != ms_rgdwBlacklistedScriptThreadIds.end();
-}
-
-static inline void PauseScriptThreadId(DWORD dwThreadId)
-{
-	std::lock_guard lock(ms_blacklistedScriptThreadIdsMutex);
-
-	ms_rgdwBlacklistedScriptThreadIds.push_back(dwThreadId);
-}
-
-static inline void UnpauseScriptThreadId(DWORD dwThreadId)
-{
-	std::lock_guard lock(ms_blacklistedScriptThreadIdsMutex);
-
-	const auto& itScriptThreadId = std::find(ms_rgdwBlacklistedScriptThreadIds.begin(), ms_rgdwBlacklistedScriptThreadIds.end(), dwThreadId);
-
-	if (itScriptThreadId != ms_rgdwBlacklistedScriptThreadIds.end())
-	{
-		ms_rgdwBlacklistedScriptThreadIds.erase(itScriptThreadId);
-	}
-}
-
-static inline void ClearNewScriptWindowState()
-{
-	ms_bIsNewScriptWindowOpen = false;
-
-	memset(ms_rgchNewScriptNameBuffer, 0, SCRIPT_NEW_SCRIPT_NAME_BUFFER_SIZE);
-
-	ms_iNewScriptStackSize = 0;
-
-	ms_bDoDispatchNewScript = false;
-}
-
-static inline [[nodiscard]] rage::_scrStack* GetScriptStack(rage::scrThread* pThread)
-{
-	for (WORD wStackIdx = 0; wStackIdx < *rage::scrThread::ms_pcwStacks; wStackIdx++)
-	{
-		rage::_scrStack stack = rage::scrThread::ms_pStacks[wStackIdx];
-
-		if (stack.m_pScrThread == pThread)
-		{
-			return &stack;
-		}
-	}
-
-	return nullptr;
 }
 
 static LRESULT(*OG_WndProc)(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -117,7 +41,7 @@ static LRESULT HK_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			case SCRIPT_WINDOW_OPEN_KEY:
 				if (c_bIsCtrlPressed)
 				{
-					SetWindowOpenState(!ms_bIsMenuOpened);
+					SetWindowOpenState(!g_bIsMenuOpened);
 				}
 
 				break;
@@ -137,7 +61,7 @@ static LRESULT HK_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		}
 	}
 
-	if (ms_bIsMenuOpened)
+	if (g_bIsMenuOpened)
 	{
 		ImGuiIO& io = ImGui::GetIO();
 
@@ -214,7 +138,7 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 
 		LOG("Dear ImGui initialized!");
 	}
-	else if (ms_bIsMenuOpened)
+	else if (g_bIsMenuOpened)
 	{
 		if (ms_bHasMenuOpenStateJustChanged)
 		{
@@ -223,7 +147,7 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 
 		if (rage::fwTimer::ms_pbUserPause)
 		{
-			*rage::fwTimer::ms_pbUserPause = ms_bPauseGameOnOverlay;
+			*rage::fwTimer::ms_pbUserPause = g_bPauseGameOnOverlay;
 		}
 
 		ShowCursor(true);
@@ -232,264 +156,9 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 		ImGui_ImplWin32_NewFrame();
 		ImGui::NewFrame();
 
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, { 400.f, 600.f });
-
-		ImGui::Begin("Script Viewer", NULL, ImGuiWindowFlags_NoCollapse);
-
-		ImGui::PopStyleVar();
-
-		static int c_iSelectedItem = 0;
-
-		ImGui::PushItemWidth(-1);
-
-		if (ImGui::ListBoxHeader("", { 0, -96.f }))
+		for (Component* pComponent : g_rgpComponents)
 		{
-			DWORD64 qwTimestamp = GetTickCount64();
-
-			static DWORD64 c_qwLastProfileUpdatedTimestamp = qwTimestamp;
-
-			bool bDoNewProfileRound = false;
-			if (qwTimestamp > c_qwLastProfileUpdatedTimestamp)
-			{
-				c_qwLastProfileUpdatedTimestamp = qwTimestamp + SCRIPT_PROFILING_UPDATE_FREQ;
-
-				bDoNewProfileRound = true;
-			}
-
-			for (WORD wScriptIdx = 0; wScriptIdx < *rage::scrThread::ms_pcwThreads; wScriptIdx++)
-			{
-				rage::scrThread* pThread = rage::scrThread::ms_ppThreads[wScriptIdx];
-
-				if (!pThread->m_dwThreadId)
-				{
-					continue;
-				}
-
-				const char* szScriptName = pThread->m_szName;
-				DWORD dwThreadId = pThread->m_dwThreadId;
-
-				bool bIsScriptAboutToBeKilled = ms_dwKillScriptThreadId == dwThreadId;
-				bool bIsScriptPaused = IsScriptThreadIdPaused(dwThreadId);
-
-				if (bIsScriptAboutToBeKilled)
-				{
-					ImGui::PushStyleColor(ImGui::GetColumnIndex(), { 1.f, 0.f, 0.f, 1.f });
-				}
-				else if (bIsScriptPaused)
-				{
-					ImGui::PushStyleColor(ImGui::GetColumnIndex(), { 1.f, 1.f, 0.f, 1.f });
-				}
-
-				ScriptProfile& scriptProfile = ms_dcScriptProfiles[dwThreadId];
-
-				if (bDoNewProfileRound)
-				{
-					scriptProfile.NewRound();
-				}
-
-				bool bIsCustomThread = !strcmp(szScriptName, "control_thread") || strstr(szScriptName, ".asi");
-
-				std::ostringstream ossScriptText;
-				ossScriptText << szScriptName;
-
-#ifdef RELOADABLE
-				if (!bIsCustomThread)
-#endif
-				{
-					if (ms_bShowExecutionTimes)
-					{
-						ossScriptText << " | " << scriptProfile.Get() << " ms";
-					}
-				}
-
-				if (!bIsCustomThread && ms_bShowStackSizes)
-				{
-					rage::_scrStack* pStack = GetScriptStack(pThread);
-
-					if (pStack)
-					{
-						ossScriptText << " | Stack Size: " << pStack->m_dwStackSize;
-					}
-				}
-
-				if (ImGui::Selectable(ossScriptText.str().c_str(), wScriptIdx == c_iSelectedItem))
-				{
-					c_iSelectedItem = wScriptIdx;
-				}
-
-				if (bIsScriptAboutToBeKilled || bIsScriptPaused)
-				{
-					ImGui::PopStyleColor();
-				}
-			}
-
-			ImGui::ListBoxFooter();
-		}
-
-		ImGui::PopItemWidth();
-
-		ImGui::Spacing();
-
-		c_iSelectedItem = min(c_iSelectedItem, *rage::scrThread::ms_pcwThreads);
-
-		rage::scrThread* pThread = rage::scrThread::ms_ppThreads[c_iSelectedItem];
-
-		std::string szSelectedScriptName = pThread->m_szName;
-		DWORD dwSelectedThreadId = pThread->m_dwThreadId;
-
-#ifdef RELOADABLE
-		bool bIsSelectedScriptUnpausable = szSelectedScriptName == "control_thread" || szSelectedScriptName.find(".asi") != std::string::npos;
-#else
-		bool bIsSelectedScriptUnpausable = !_stricmp(szSelectedScriptName.c_str(), g_szFileName);
-#endif
-		bool bIsAnyScriptAboutToBeKilled = ms_dwKillScriptThreadId;
-
-		bool bIsSelectedScriptPaused = IsScriptThreadIdPaused(dwSelectedThreadId);
-
-		if (bIsSelectedScriptPaused)
-		{
-			ImGui::PushStyleColor(ImGui::GetColumnIndex(), { 1.f, 1.f, 0.f, 1.f });
-		}
-
-		if (bIsSelectedScriptUnpausable || bIsAnyScriptAboutToBeKilled)
-		{
-			ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
-		}
-
-		if (ImGui::Button(bIsSelectedScriptPaused ? "Unpause" : "Pause"))
-		{
-			if (bIsSelectedScriptPaused)
-			{
-				UnpauseScriptThreadId(dwSelectedThreadId);
-			}
-			else
-			{
-				PauseScriptThreadId(dwSelectedThreadId);
-			}
-		}
-
-		if (bIsSelectedScriptUnpausable)
-		{
-			ImGui::PopItemFlag();
-		}
-
-		if (bIsSelectedScriptPaused)
-		{
-			ImGui::PopStyleColor();
-		}
-
-		ImGui::SameLine();
-
-		ImGui::PushStyleColor(ImGui::GetColumnIndex(), { 1.f, 0.f, 0.f, 1.f });
-
-		if (ImGui::Button("Kill"))
-		{
-			ms_dwKillScriptThreadId = dwSelectedThreadId;
-		}
-
-		ImGui::PopStyleColor();
-
-		if (bIsAnyScriptAboutToBeKilled && !bIsSelectedScriptUnpausable)
-		{
-			ImGui::PopItemFlag();
-		}
-
-		ImGui::SameLine();
-
-		// Store current state (so PopItemFlag won't be unjustify called)
-		bool bIsNewScriptWindowOpen = ms_bIsNewScriptWindowOpen;
-
-		if (bIsNewScriptWindowOpen || ms_bDoDispatchNewScript)
-		{
-			ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
-		}
-
-		if (ImGui::Button("Start New Script"))
-		{
-			ms_bIsNewScriptWindowOpen = true;
-		}
-
-		if (bIsNewScriptWindowOpen || ms_bDoDispatchNewScript)
-		{
-			ImGui::PopItemFlag();
-		}
-
-		if (ImGui::Button(ms_bShowExecutionTimes ? "Show Execution Times: On" : "Show Execution Times: Off"))
-		{
-			ms_bShowExecutionTimes = !ms_bShowExecutionTimes;
-		}
-
-		if (ms_bShowExecutionTimes)
-		{
-			ImGui::SameLine();
-
-			if (ImGui::Button(ScriptProfile::ms_eProfileType == eScriptProfileType::HIGHEST_TIME ? "Profile Type: Highest Time"
-				: "Profile Type: Average Time"))
-			{
-				switch (ScriptProfile::ms_eProfileType)
-				{
-				case eScriptProfileType::HIGHEST_TIME:
-					ScriptProfile::ms_eProfileType = eScriptProfileType::AVERAGE_TIME;
-
-					break;
-				case eScriptProfileType::AVERAGE_TIME:
-					ScriptProfile::ms_eProfileType = eScriptProfileType::HIGHEST_TIME;
-
-					break;
-				}
-			}
-		}
-
-		if (rage::scrThread::ms_pStacks && rage::scrThread::ms_pcwStacks && ImGui::Button(ms_bShowStackSizes ? "Show Stack Sizes: On" : "Show Stack Sizes: Off"))
-		{
-			ms_bShowStackSizes = !ms_bShowStackSizes;
-		}
-
-		if (rage::fwTimer::ms_pbUserPause)
-		{
-			if (ImGui::Button(ms_bPauseGameOnOverlay ? "Pause Game: On" : "Pause Game: Off"))
-			{
-				ms_bPauseGameOnOverlay = !ms_bPauseGameOnOverlay;
-			}
-
-			ImGui::SameLine();
-		}
-
-		if (!rage::fwTimer::ms_pbUserPause || !ms_bPauseGameOnOverlay)
-		{
-			if (ImGui::Button(ms_bBlockKeyboardInputs ? "Block Keyboard Inputs: On" : "Block Keyboard Inputs: Off"))
-			{
-				ms_bBlockKeyboardInputs = !ms_bBlockKeyboardInputs;
-			}
-		}
-
-		ImGui::End();
-
-		if (ms_bIsNewScriptWindowOpen)
-		{
-			ImGui::Begin("New Script", NULL, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize);
-
-			ImGui::SetWindowSize({ 400.f, 100.f });
-
-			ImGui::InputText("Script Name", ms_rgchNewScriptNameBuffer, SCRIPT_NEW_SCRIPT_NAME_BUFFER_SIZE);
-
-			ImGui::InputInt("Script Stack Size", &ms_iNewScriptStackSize);
-
-			if (ImGui::Button("Cancel"))
-			{
-				ClearNewScriptWindowState();
-			}
-
-			ImGui::SameLine();
-
-			if (ImGui::Button("Start"))
-			{
-				ms_bDoDispatchNewScript = true;
-
-				ms_bIsNewScriptWindowOpen = false;
-			}
-
-			ImGui::End();
+			pComponent->RunImGui();
 		}
 
 		ImGui::Render();
@@ -536,23 +205,29 @@ static HRESULT HK_ResizeBuffers(IDXGISwapChain* pSwapChain, UINT uiBufferCount, 
 static __int64(*OG_ScriptRunHook)(rage::scrThread* pScrThread);
 static __int64 HK_ScriptRunHook(rage::scrThread* pScrThread)
 {
-	if (IsScriptThreadIdPaused(pScrThread->m_dwThreadId))
+	bool bAbort = false;
+	for (Component* pComponent : g_rgpComponents)
+	{
+		if (!pComponent->RunHook(pScrThread))
+		{
+			bAbort = true;
+		}
+	}
+
+	if (bAbort)
 	{
 		return 0;
 	}
-	else if (ms_bIsMenuOpened)
+
+	const auto& startTimestamp = std::chrono::high_resolution_clock::now();
+
+	__int64 result = OG_ScriptRunHook(pScrThread);
+
+	DWORD64 qwExecutionTime = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - startTimestamp).count();
+
+	for (Component* pComponent : g_rgpComponents)
 	{
-		ScriptProfile& scriptProfile = ms_dcScriptProfiles[pScrThread->m_dwThreadId];
-		
-		const auto& startTimestamp = std::chrono::high_resolution_clock::now();
-
-		__int64 result = OG_ScriptRunHook(pScrThread);
-
-		DWORD64 qwExecutionTime = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - startTimestamp).count();
-
-		scriptProfile.Add(qwExecutionTime);
-	
-		return result;
+		pComponent->RunCallback(pScrThread, qwExecutionTime);
 	}
 
 	return OG_ScriptRunHook(pScrThread);
@@ -567,8 +242,6 @@ void Main::Uninit()
 
 		ImGui::DestroyContext();
 	}
-
-	MH_Uninitialize();
 
 	if (ms_pPresentVftEntryAddr)
 	{
@@ -691,60 +364,21 @@ void Main::Loop()
 
 	while (true)
 	{
-		WAIT(SCRIPT_UPDATE_LIST_FREQ);
+		WAIT(0);
 
 		if (!ms_bDidImguiInit)
 		{
 			continue;
 		}
 
-		if (ms_dwKillScriptThreadId)
-		{
-			for (WORD wScriptIdx = 0; wScriptIdx < *rage::scrThread::ms_pcwThreads; wScriptIdx++)
-			{
-				rage::scrThread* pThread = rage::scrThread::ms_ppThreads[wScriptIdx];
-
-				if (pThread->m_dwThreadId == ms_dwKillScriptThreadId)
-				{
-					pThread->Kill();
-
-					break;
-				}
-			}
-
-			ms_dwKillScriptThreadId = 0;
-		}
-
-		if (ms_bDoDispatchNewScript)
-		{
-			if (ms_rgchNewScriptNameBuffer[0] && ms_iNewScriptStackSize >= 0 && DOES_SCRIPT_EXIST(ms_rgchNewScriptNameBuffer))
-			{
-				REQUEST_SCRIPT(ms_rgchNewScriptNameBuffer);
-
-				while (!HAS_SCRIPT_LOADED(ms_rgchNewScriptNameBuffer))
-				{
-					WAIT(0);
-				}
-
-				START_NEW_SCRIPT(ms_rgchNewScriptNameBuffer, ms_iNewScriptStackSize);
-
-				SET_SCRIPT_AS_NO_LONGER_NEEDED(ms_rgchNewScriptNameBuffer);
-			}
-
-			ClearNewScriptWindowState();
-		}
-	}
-}
-
-void Main::LoopWindowActionsBlock()
-{
-	while (true)
-	{
-		WAIT(0);
-
-		if (ms_bIsMenuOpened && (ms_bPauseGameOnOverlay || (!ms_bPauseGameOnOverlay && ms_bBlockKeyboardInputs)))
+		if (g_bIsMenuOpened && (g_bPauseGameOnOverlay || (!g_bPauseGameOnOverlay && g_bBlockKeyboardInputs)))
 		{
 			DISABLE_ALL_CONTROL_ACTIONS(0);
+		}
+
+		for (Component* pComponent : g_rgpComponents)
+		{
+			pComponent->RunScript();
 		}
 	}
 }

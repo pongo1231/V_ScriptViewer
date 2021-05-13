@@ -12,8 +12,6 @@ BOOL APIENTRY DllMain(HMODULE hInstance, DWORD reason, LPVOID lpReserved)
 
 		scriptRegister(hInstance, Main::Loop);
 
-		scriptRegisterAdditionalThread(hInstance, Main::LoopWindowActionsBlock);
-
 		break;
 	case DLL_PROCESS_DETACH:
 		Main::Uninit();

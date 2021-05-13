@@ -10,11 +10,11 @@ namespace Memory
 class RegisterHook
 {
 public:
-	RegisterHook(void(*pOnHook)())
+	RegisterHook(void(*pHook)())
 	{
-		if (pOnHook)
+		if (pHook)
 		{
-			Memory::g_rgHooks.push_back(pOnHook);
+			Memory::g_rgHooks.push_back(pHook);
 		}
 	}
 
