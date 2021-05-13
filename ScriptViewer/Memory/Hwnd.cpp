@@ -11,6 +11,11 @@ static void OnHook()
 	{
 		Memory::g_hWnd = handle.Into().At(0x79).At(2).Into().Value<HWND>();
 
+		RECT wndRect;
+		GetWindowRect(Memory::g_hWnd, reinterpret_cast<LPRECT>(&wndRect));
+
+		Memory::g_fWndInitialHorizontalCenter = (wndRect.right - wndRect.left) * .5f;
+
 		LOG("Found hWnd");
 	}
 }

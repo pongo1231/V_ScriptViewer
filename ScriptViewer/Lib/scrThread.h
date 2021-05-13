@@ -43,6 +43,21 @@ namespace rage
 		virtual __int64 Update() = 0;
 
 		virtual __int64 Kill() = 0;
+
+		inline [[nodiscard]] rage::_scrStack* GetScriptStack()
+		{
+			for (WORD wStackIdx = 0; wStackIdx < *rage::scrThread::ms_pcwStacks; wStackIdx++)
+			{
+				rage::_scrStack& stack = rage::scrThread::ms_pStacks[wStackIdx];
+
+				if (stack.m_pScrThread == this)
+				{
+					return &stack;
+				}
+			}
+
+			return nullptr;
+		}
 	};
 }
 

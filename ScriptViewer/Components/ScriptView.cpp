@@ -8,21 +8,6 @@
 
 #pragma endregion
 
-static inline [[nodiscard]] rage::_scrStack* GetScriptStack(rage::scrThread* pThread)
-{
-	for (WORD wStackIdx = 0; wStackIdx < *rage::scrThread::ms_pcwStacks; wStackIdx++)
-	{
-		rage::_scrStack& stack = rage::scrThread::ms_pStacks[wStackIdx];
-
-		if (stack.m_pScrThread == pThread)
-		{
-			return &stack;
-		}
-	}
-
-	return nullptr;
-}
-
 void ScriptView::PauseScriptThreadId(DWORD dwThreadId)
 {
 	std::lock_guard lock(m_blacklistedScriptThreadIdsMutex);
@@ -67,11 +52,9 @@ void ScriptView::RunImGui()
 {
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, { 400.f, 600.f });
 
-	ImGui::Begin("Script Viewer", NULL, ImGuiWindowFlags_NoCollapse);
+	ImGui::Begin("Script Viewer", nullptr, ImGuiWindowFlags_NoCollapse);
 
 	ImGui::PopStyleVar();
-
-	static int c_iSelectedItem = 0;
 
 	ImGui::PushItemWidth(-1);
 
@@ -135,7 +118,7 @@ void ScriptView::RunImGui()
 
 			if (!bIsCustomThread && m_bShowStackSizes)
 			{
-				rage::_scrStack* pStack = GetScriptStack(pThread);
+				rage::_scrStack* pStack = pThread->GetScriptStack();
 
 				if (pStack)
 				{
@@ -143,9 +126,9 @@ void ScriptView::RunImGui()
 				}
 			}
 
-			if (ImGui::Selectable(ossScriptText.str().c_str(), wScriptIdx == c_iSelectedItem))
+			if (ImGui::Selectable(ossScriptText.str().c_str(), wScriptIdx == m_iSelectedItemIdx))
 			{
-				c_iSelectedItem = wScriptIdx;
+				m_iSelectedItemIdx = wScriptIdx;
 			}
 
 			if (bIsScriptAboutToBeKilled || bIsScriptPaused)
@@ -161,9 +144,9 @@ void ScriptView::RunImGui()
 
 	ImGui::Spacing();
 
-	c_iSelectedItem = min(c_iSelectedItem, *rage::scrThread::ms_pcwThreads);
+	m_iSelectedItemIdx = min(m_iSelectedItemIdx, *rage::scrThread::ms_pcwThreads);
 
-	rage::scrThread* pThread = rage::scrThread::ms_ppThreads[c_iSelectedItem];
+	rage::scrThread* pThread = rage::scrThread::ms_ppThreads[m_iSelectedItemIdx];
 
 	std::string szSelectedScriptName = pThread->m_szName;
 	DWORD dwSelectedThreadId = pThread->m_dwThreadId;
@@ -298,9 +281,9 @@ void ScriptView::RunImGui()
 
 	if (m_bIsNewScriptWindowOpen)
 	{
-		ImGui::Begin("New Script", NULL, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize);
+		ImGui::SetNextWindowSize({ 400.f, 100.f });
 
-		ImGui::SetWindowSize({ 400.f, 100.f });
+		ImGui::Begin("New Script", NULL, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize);
 
 		ImGui::InputText("Script Name", m_rgchNewScriptNameBuffer.data(), m_rgchNewScriptNameBuffer.max_size());
 

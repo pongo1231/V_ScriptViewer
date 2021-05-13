@@ -3,8 +3,10 @@
 #include "nativesNoNamespaces.h"
 #include "Main.h"
 #include "ScriptProfile.h"
-#include "Component.h"
-#include "ScriptView.h"
+
+#include "Components/Component.h"
+#include "Components/ComponentView.h"
+#include "Components/ScriptView.h"
 
 #include "Memory/Memory.h"
 #include "Memory/Handle.h"

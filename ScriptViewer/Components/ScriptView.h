@@ -10,7 +10,6 @@
 #include <chrono>
 
 typedef unsigned long DWORD;
-typedef unsigned long long DWORD64;
 
 class ScriptProfile;
 
@@ -32,9 +31,16 @@ private:
 	int m_iNewScriptStackSize = 0;
 	bool m_bDoDispatchNewScript = false;
 
+	int m_iSelectedItemIdx = 0;
+
 	DWORD64 m_qwLastProfileUpdatedTimestamp = 0;
 
 public:
+	ScriptView() : Component()
+	{
+		m_bIsOpen = true;
+	}
+
 	inline [[nodiscard]] bool IsScriptThreadIdPaused(DWORD dwThreadId)
 	{
 		std::lock_guard lock(m_blacklistedScriptThreadIdsMutex);
@@ -56,5 +62,3 @@ public:
 
 	virtual void RunScript() override;
 };
-
-inline ScriptView g_scriptView;

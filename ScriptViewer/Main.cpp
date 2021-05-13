@@ -15,9 +15,11 @@ static bool ms_bDidInit = false;
 static bool ms_bDidImguiInit = false;
 static bool ms_bHasMenuOpenStateJustChanged = false;
 
+static bool ms_bIsMenuOpened = false;
+
 static inline void SetWindowOpenState(bool state)
 {
-	g_bIsMenuOpened = state;
+	ms_bIsMenuOpened = state;
 
 	ms_bHasMenuOpenStateJustChanged = true;
 }
@@ -41,7 +43,7 @@ static LRESULT HK_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			case SCRIPT_WINDOW_OPEN_KEY:
 				if (c_bIsCtrlPressed)
 				{
-					SetWindowOpenState(!g_bIsMenuOpened);
+					SetWindowOpenState(!ms_bIsMenuOpened);
 				}
 
 				break;
@@ -61,7 +63,7 @@ static LRESULT HK_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		}
 	}
 
-	if (g_bIsMenuOpened)
+	if (ms_bIsMenuOpened)
 	{
 		ImGuiIO& io = ImGui::GetIO();
 
@@ -138,7 +140,7 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 
 		LOG("Dear ImGui initialized!");
 	}
-	else if (g_bIsMenuOpened)
+	else if (ms_bIsMenuOpened)
 	{
 		if (ms_bHasMenuOpenStateJustChanged)
 		{
@@ -158,7 +160,10 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 
 		for (Component* pComponent : g_rgpComponents)
 		{
-			pComponent->RunImGui();
+			if (pComponent->m_bIsOpen)
+			{
+				pComponent->RunImGui();
+			}
 		}
 
 		ImGui::Render();
@@ -371,7 +376,7 @@ void Main::Loop()
 			continue;
 		}
 
-		if (g_bIsMenuOpened && (g_bPauseGameOnOverlay || (!g_bPauseGameOnOverlay && g_bBlockKeyboardInputs)))
+		if (ms_bIsMenuOpened && (g_bPauseGameOnOverlay || (!g_bPauseGameOnOverlay && g_bBlockKeyboardInputs)))
 		{
 			DISABLE_ALL_CONTROL_ACTIONS(0);
 		}
