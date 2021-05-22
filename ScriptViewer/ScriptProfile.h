@@ -64,7 +64,7 @@ public:
 		m_cqwExecutions = 0;
 	}
 
-	inline float [[nodiscard]] Get() const
+	inline float [[nodiscard]] GetMs() const
 	{
 		return m_fCurExecutionTimeMs;
 	}

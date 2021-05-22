@@ -172,13 +172,16 @@
     <ClInclude Include="Memory\Hook.h" />
     <ClInclude Include="Memory\Hwnd.h" />
     <ClInclude Include="Components\RecordView.h" />
+    <ClInclude Include="Components\OptionsView.h" />
     <ClInclude Include="ScriptProfile.h" />
     <ClCompile Include="Components\RecordView.cpp" />
+    <ClCompile Include="Components\OptionsView.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug (Reloadable)|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClInclude Include="Util\Misc.h" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="..\vendor\minhook\build\VC16\lib\Release\libMinHook.x64.lib" />

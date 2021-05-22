@@ -11,9 +11,11 @@ ComponentView::ComponentView() : Component()
 
 	m_rgComponents.emplace_back("Script Viewer", std::make_unique<ScriptView>());
 
-	m_rgComponents.emplace_back("Global Editor", std::make_unique<GlobalView>());
+	//m_rgComponents.emplace_back("Global Editor", std::make_unique<GlobalView>());
 
 	m_rgComponents.emplace_back("Record View", std::make_unique<RecordView>());
+
+	m_rgComponents.emplace_back("Options", std::make_unique<OptionsView>());
 }
 
 void ComponentView::RunImGui()

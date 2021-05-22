@@ -9,6 +9,7 @@
 #include "Components/ScriptView.h"
 #include "Components/GlobalView.h"
 #include "Components/RecordView.h"
+#include "Components/OptionsView.h"
 
 #include "Memory/Memory.h"
 #include "Memory/Handle.h"
@@ -16,6 +17,7 @@
 #include "Memory/Hwnd.h"
 
 #include "Util/Logging.h"
+#include "Util/Misc.h"
 
 #include "Lib/scrThread.h"
 #include "Lib/fwTimer.h"

@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <vector>
 #include <set>
+#include <mutex>
 
 typedef unsigned long DWORD;
 typedef unsigned long long DWORD64;
@@ -32,7 +33,7 @@ private:
 
 			}
 
-			ScriptTrace(const ScriptTrace& scriptTrace) : ScriptTrace(m_dwIP)
+			ScriptTrace(const ScriptTrace& scriptTrace) : ScriptTrace(scriptTrace.m_dwIP)
 			{
 				m_qwExecTimeNs = scriptTrace.m_qwExecTimeNs;
 				m_fExecTimeSecs = scriptTrace.m_fExecTimeSecs;
@@ -40,13 +41,14 @@ private:
 
 			ScriptTrace& operator=(const ScriptTrace& scriptTrace)
 			{
+				m_dwIP = scriptTrace.m_dwIP;
 				m_qwExecTimeNs = scriptTrace.m_qwExecTimeNs;
 				m_fExecTimeSecs = scriptTrace.m_fExecTimeSecs;
 
 				return *this;
 			}
 
-			ScriptTrace(ScriptTrace&& scriptTrace) noexcept : ScriptTrace(m_dwIP)
+			ScriptTrace(ScriptTrace&& scriptTrace) noexcept : ScriptTrace(scriptTrace.m_dwIP)
 			{
 				m_qwExecTimeNs = scriptTrace.m_qwExecTimeNs;
 				m_fExecTimeSecs = scriptTrace.m_fExecTimeSecs;
@@ -76,7 +78,7 @@ private:
 					return;
 				}
 
-				m_qwExecTimeNs = qwExecTimeNs;
+				m_qwExecTimeNs += qwExecTimeNs;
 			}
 
 			inline void End()
@@ -84,6 +86,11 @@ private:
 				m_bHasEnded = true;
 
 				m_fExecTimeSecs = !m_qwExecTimeNs ? m_qwExecTimeNs : m_qwExecTimeNs / 1000000000.f;
+			}
+
+			inline [[nodscard]] DWORD GetIP() const
+			{
+				return m_dwIP;
 			}
 
 			inline [[nodiscard]] float GetSecs() const
@@ -164,12 +171,15 @@ private:
 
 			m_qwExecTimeNs += qwExecTimeNs;
 
-			if (m_dictScriptTraces.find(dwIP) == m_dictScriptTraces.end())
+			if (dwIP != -1)
 			{
-				m_dictScriptTraces.emplace(dwIP, dwIP);
-			}
+				if (m_dictScriptTraces.find(dwIP) == m_dictScriptTraces.end())
+				{
+					m_dictScriptTraces.emplace(dwIP, dwIP);
+				}
 
-			m_dictScriptTraces.at(dwIP).Add(qwExecTimeNs);
+				m_dictScriptTraces.at(dwIP).Add(qwExecTimeNs);
+			}
 		}
 
 		inline void End()
@@ -217,11 +227,11 @@ private:
 	};
 
 	std::unordered_map<DWORD, DetailedScriptProfile> m_dictScriptProfiles;
+	std::mutex m_scriptProfilesMutex;
 	std::set<DetailedScriptProfile, std::greater<DetailedScriptProfile>> m_rgFinalScriptProfileSet;
 
-	DWORD64 m_qwStartTimestamp;
-	DWORD64 m_qwLastProfileTimestamp;
-	bool m_bIsRecording = false;
+	std::atomic<bool> m_bIsRecording = false;
+	std::atomic<float> m_fRecordTimeSecs = 0.f;
 
 public:
 	RecordView() : Component()
@@ -243,4 +253,6 @@ public:
 	virtual void RunCallback(rage::scrThread* pScrThread, DWORD64 qwExecutionTime) override;
 
 	virtual void RunImGui() override;
+
+	virtual void RunScript() override;
 };

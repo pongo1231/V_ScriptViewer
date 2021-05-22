@@ -20,16 +20,40 @@ void ScriptView::RunCallback(rage::scrThread* pScrThread, DWORD64 qwExecutionTim
 
 void ScriptView::RunImGui()
 {
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, { 400.f, 600.f });
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, { 400.f, 500.f });
+	ImGui::SetNextWindowSize({ 500.f, 700.f }, ImGuiCond_Once);
 
 	ImGui::Begin("Script Viewer", nullptr, ImGuiWindowFlags_NoCollapse);
 
-	ImGui::PopStyleVar();
-
 	ImGui::PushItemWidth(-1);
 
-	if (ImGui::ListBoxHeader("", { 0, -96.f }))
+	int ciColumns = 1;
+	if (m_bShowExecutionTimes)
 	{
+		ciColumns++;
+	}
+	if (m_bShowStackSizes)
+	{
+		ciColumns++;
+	}
+
+	if (ImGui::BeginTable("", ciColumns, ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable
+		| ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchSame, { 0, -73.f }))
+	{
+		ImGui::TableSetupColumn("Script Name", 0, .6f);
+		if (m_bShowExecutionTimes)
+		{
+			ImGui::TableSetupColumn("Exec Time", 0, .2f);
+		}
+		if (m_bShowStackSizes)
+		{
+			ImGui::TableSetupColumn("Stack Size", 0, .2f);
+		}
+		ImGui::TableSetupScrollFreeze(ciColumns, 1);
+		ImGui::TableHeadersRow();
+
+		ImGui::TableNextColumn();
+
 		DWORD64 qwTimestamp = GetTickCount64();
 
 		bool bDoNewProfileRound = false;
@@ -71,43 +95,55 @@ void ScriptView::RunImGui()
 				scriptProfile.NewRound();
 			}
 
-			bool bIsCustomThread = !strcmp(szScriptName, "control_thread") || strstr(szScriptName, ".asi");
+			bool bIsCustomThread = Util::IsCustomScriptName(szScriptName);
 
-			std::ostringstream ossScriptText;
-			ossScriptText << szScriptName;
-
-#ifdef RELOADABLE
-			if (!bIsCustomThread)
-#endif
-			{
-				if (m_bShowExecutionTimes)
-				{
-					ossScriptText << " | " << scriptProfile.Get() << " ms";
-				}
-			}
-
-			if (!bIsCustomThread && m_bShowStackSizes)
-			{
-				rage::_scrStack* pStack = pThread->GetScriptStack();
-
-				if (pStack)
-				{
-					ossScriptText << " | Stack Size: " << pStack->m_dwStackSize;
-				}
-			}
-
-			if (ImGui::Selectable(ossScriptText.str().c_str(), wScriptIdx == m_wSelectedItemIdx))
+			if (ImGui::Selectable(szScriptName, wScriptIdx == m_wSelectedItemIdx, ImGuiSelectableFlags_SpanAllColumns))
 			{
 				m_wSelectedItemIdx = wScriptIdx;
+			}
+
+			if (m_bShowExecutionTimes)
+			{
+				ImGui::TableNextColumn();
+
+#ifdef RELOADABLE
+				if (!bIsCustomThread)
+#endif
+				{
+					std::ostringstream oss;
+					oss << scriptProfile.GetMs() << "ms" << std::endl;
+
+					ImGui::Text(oss.str().c_str());
+				}
+			}
+
+			if (m_bShowStackSizes)
+			{
+				ImGui::TableNextColumn();
+
+				if (!bIsCustomThread)
+				{
+					rage::_scrStack* pStack = pThread->GetScriptStack();
+
+					if (pStack)
+					{
+						std::ostringstream oss;
+						oss << pStack->m_dwStackSize << std::endl;
+
+						ImGui::Text(oss.str().c_str());
+					}
+				}
 			}
 
 			if (bIsScriptAboutToBeKilled || bIsScriptPaused)
 			{
 				ImGui::PopStyleColor();
 			}
+
+			ImGui::TableNextColumn();
 		}
 
-		ImGui::ListBoxFooter();
+		ImGui::EndTable();
 	}
 
 	ImGui::PopItemWidth();
@@ -122,7 +158,7 @@ void ScriptView::RunImGui()
 	DWORD dwSelectedThreadId = pThread->m_dwThreadId;
 
 #ifdef RELOADABLE
-	bool bIsSelectedScriptUnpausable = szSelectedScriptName == "control_thread" || szSelectedScriptName.find(".asi") != std::string::npos;
+	bool bIsSelectedScriptUnpausable = Util::IsCustomScriptName(szSelectedScriptName);
 #else
 	bool bIsSelectedScriptUnpausable = !_stricmp(szSelectedScriptName.c_str(), g_szFileName);
 #endif
@@ -229,25 +265,9 @@ void ScriptView::RunImGui()
 		m_bShowStackSizes = !m_bShowStackSizes;
 	}
 
-	if (rage::fwTimer::ms_pbUserPause)
-	{
-		if (ImGui::Button(g_bPauseGameOnOverlay ? "Pause Game: On" : "Pause Game: Off"))
-		{
-			g_bPauseGameOnOverlay = !g_bPauseGameOnOverlay;
-		}
-
-		ImGui::SameLine();
-	}
-
-	if (!rage::fwTimer::ms_pbUserPause || !g_bPauseGameOnOverlay)
-	{
-		if (ImGui::Button(g_bBlockKeyboardInputs ? "Block Keyboard Inputs: On" : "Block Keyboard Inputs: Off"))
-		{
-			g_bBlockKeyboardInputs = !g_bBlockKeyboardInputs;
-		}
-	}
-
 	ImGui::End();
+
+	ImGui::PopStyleVar();
 
 	if (m_bIsNewScriptWindowOpen)
 	{
