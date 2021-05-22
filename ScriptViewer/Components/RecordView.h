@@ -88,7 +88,7 @@ private:
 				m_fExecTimeSecs = !m_qwExecTimeNs ? m_qwExecTimeNs : m_qwExecTimeNs / 1000000000.f;
 			}
 
-			inline [[nodscard]] DWORD GetIP() const
+			inline [[nodiscard]] DWORD GetIP() const
 			{
 				return m_dwIP;
 			}
@@ -199,7 +199,7 @@ private:
 			}
 		}
 
-		inline [[nodsicard]] float GetSecs() const
+		inline [[nodiscard]] float GetSecs() const
 		{
 			if (m_bHasEnded)
 			{
@@ -229,6 +229,8 @@ private:
 	std::unordered_map<DWORD, DetailedScriptProfile> m_dictScriptProfiles;
 	std::mutex m_scriptProfilesMutex;
 	std::set<DetailedScriptProfile, std::greater<DetailedScriptProfile>> m_rgFinalScriptProfileSet;
+
+	DWORD64 m_qwLastUpdateTimestamp = 0;
 
 	std::atomic<bool> m_bIsRecording = false;
 	std::atomic<float> m_fRecordTimeSecs = 0.f;

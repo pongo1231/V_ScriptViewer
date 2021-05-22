@@ -2,6 +2,12 @@
 
 #include "RecordView.h"
 
+#pragma region CONFIG
+
+#define RECORD_DISPLAY_UPDATE_FREQ 1000
+
+#pragma endregion
+
 void RecordView::RunCallback(rage::scrThread* pScrThread, DWORD64 qwExecutionTime)
 {
 	if (!m_bIsRecording)
@@ -22,6 +28,21 @@ void RecordView::RunCallback(rage::scrThread* pScrThread, DWORD64 qwExecutionTim
 
 void RecordView::RunImGui()
 {
+	if (m_bIsRecording)
+	{
+		DWORD64 qwCurTimestamp = GetTickCount64();
+		if (m_qwLastUpdateTimestamp < qwCurTimestamp - RECORD_DISPLAY_UPDATE_FREQ)
+		{
+			m_qwLastUpdateTimestamp = qwCurTimestamp;
+
+			m_rgFinalScriptProfileSet.clear();
+			for (const auto& pair : m_dictScriptProfiles)
+			{
+				m_rgFinalScriptProfileSet.insert(pair.second);
+			}
+		}
+	}
+
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, { 400.f, 500.f });
 	ImGui::SetNextWindowSize({ 500.f, 700.f }, ImGuiCond_Once);
 
@@ -43,8 +64,11 @@ void RecordView::RunImGui()
 		}
 		else
 		{
-			for (const auto& pair : m_dictScriptProfiles)
+			m_rgFinalScriptProfileSet.clear();
+			for (auto& pair : m_dictScriptProfiles)
 			{
+				pair.second.End();
+
 				m_rgFinalScriptProfileSet.insert(pair.second);
 			}
 		}
