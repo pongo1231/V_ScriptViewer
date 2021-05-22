@@ -9,6 +9,7 @@
 #include <array>
 #include <chrono>
 
+typedef unsigned short WORD;
 typedef unsigned long DWORD;
 
 class ScriptProfile;
@@ -31,7 +32,7 @@ private:
 	int m_iNewScriptStackSize = 0;
 	bool m_bDoDispatchNewScript = false;
 
-	int m_iSelectedItemIdx = 0;
+	WORD m_wSelectedItemIdx = 0;
 
 	DWORD64 m_qwLastProfileUpdatedTimestamp = 0;
 
@@ -41,18 +42,16 @@ public:
 		m_bIsOpen = true;
 	}
 
-	inline [[nodiscard]] bool IsScriptThreadIdPaused(DWORD dwThreadId)
-	{
-		std::lock_guard lock(m_blacklistedScriptThreadIdsMutex);
+	ScriptView(const ScriptView&) = delete;
 
-		return std::find(m_rgdwBlacklistedScriptThreadIds.begin(), m_rgdwBlacklistedScriptThreadIds.end(), dwThreadId) != m_rgdwBlacklistedScriptThreadIds.end();
+	ScriptView& operator=(const ScriptView&) = delete;
+
+	ScriptView(ScriptView&& scriptView) noexcept : Component(std::move(scriptView))
+	{
+
 	}
 
-	void PauseScriptThreadId(DWORD dwThreadId);
-
-	void UnpauseScriptThreadId(DWORD dwThreadId);
-
-	void ClearNewScriptWindowState();
+	ScriptView& operator=(ScriptView&&) = delete;
 
 	virtual bool RunHook(rage::scrThread* pScrThread) override;
 
@@ -61,4 +60,13 @@ public:
 	virtual void RunImGui() override;
 
 	virtual void RunScript() override;
+
+private:
+	[[nodiscard]] bool IsScriptThreadIdPaused(DWORD dwThreadId);
+
+	void PauseScriptThreadId(DWORD dwThreadId);
+
+	void UnpauseScriptThreadId(DWORD dwThreadId);
+
+	void ClearNewScriptWindowState();
 };

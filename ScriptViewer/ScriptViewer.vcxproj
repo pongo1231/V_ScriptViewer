@@ -157,6 +157,7 @@
     </ClCompile>
     <ClCompile Include="Components\ComponentView.cpp" />
     <ClCompile Include="dllmain.cpp" />
+    <ClCompile Include="Components\GlobalView.cpp" />
     <ClCompile Include="Lib\fwTimer.cpp" />
     <ClCompile Include="Components\ScriptView.cpp" />
     <ClCompile Include="Lib\scrThread.cpp" />
@@ -165,11 +166,14 @@
     <ClCompile Include="Memory\Memory.cpp" />
     <ClInclude Include="Components\Component.h" />
     <ClInclude Include="Components\ComponentView.h" />
+    <ClInclude Include="Components\GlobalView.h" />
     <ClInclude Include="Lib\fwTimer.h" />
     <ClInclude Include="Components\ScriptView.h" />
     <ClInclude Include="Memory\Hook.h" />
     <ClInclude Include="Memory\Hwnd.h" />
+    <ClInclude Include="Components\RecordView.h" />
     <ClInclude Include="ScriptProfile.h" />
+    <ClCompile Include="Components\RecordView.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug (Reloadable)|x64'">Create</PrecompiledHeader>

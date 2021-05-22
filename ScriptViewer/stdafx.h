@@ -7,6 +7,8 @@
 #include "Components/Component.h"
 #include "Components/ComponentView.h"
 #include "Components/ScriptView.h"
+#include "Components/GlobalView.h"
+#include "Components/RecordView.h"
 
 #include "Memory/Memory.h"
 #include "Memory/Handle.h"

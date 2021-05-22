@@ -8,36 +8,6 @@
 
 #pragma endregion
 
-void ScriptView::PauseScriptThreadId(DWORD dwThreadId)
-{
-	std::lock_guard lock(m_blacklistedScriptThreadIdsMutex);
-
-	m_rgdwBlacklistedScriptThreadIds.push_back(dwThreadId);
-}
-
-void ScriptView::UnpauseScriptThreadId(DWORD dwThreadId)
-{
-	std::lock_guard lock(m_blacklistedScriptThreadIdsMutex);
-
-	const auto& itScriptThreadId = std::find(m_rgdwBlacklistedScriptThreadIds.begin(), m_rgdwBlacklistedScriptThreadIds.end(), dwThreadId);
-
-	if (itScriptThreadId != m_rgdwBlacklistedScriptThreadIds.end())
-	{
-		m_rgdwBlacklistedScriptThreadIds.erase(itScriptThreadId);
-	}
-}
-
-void ScriptView::ClearNewScriptWindowState()
-{
-	m_bIsNewScriptWindowOpen = false;
-
-	m_rgchNewScriptNameBuffer.fill(0);
-
-	m_iNewScriptStackSize = 0;
-
-	m_bDoDispatchNewScript = false;
-}
-
 bool ScriptView::RunHook(rage::scrThread* pScrThread)
 {
 	return !IsScriptThreadIdPaused(pScrThread->m_dwThreadId);
@@ -126,9 +96,9 @@ void ScriptView::RunImGui()
 				}
 			}
 
-			if (ImGui::Selectable(ossScriptText.str().c_str(), wScriptIdx == m_iSelectedItemIdx))
+			if (ImGui::Selectable(ossScriptText.str().c_str(), wScriptIdx == m_wSelectedItemIdx))
 			{
-				m_iSelectedItemIdx = wScriptIdx;
+				m_wSelectedItemIdx = wScriptIdx;
 			}
 
 			if (bIsScriptAboutToBeKilled || bIsScriptPaused)
@@ -144,9 +114,9 @@ void ScriptView::RunImGui()
 
 	ImGui::Spacing();
 
-	m_iSelectedItemIdx = min(m_iSelectedItemIdx, *rage::scrThread::ms_pcwThreads);
+	m_wSelectedItemIdx = min(m_wSelectedItemIdx, *rage::scrThread::ms_pcwThreads);
 
-	rage::scrThread* pThread = rage::scrThread::ms_ppThreads[m_iSelectedItemIdx];
+	rage::scrThread* pThread = rage::scrThread::ms_ppThreads[m_wSelectedItemIdx];
 
 	std::string szSelectedScriptName = pThread->m_szName;
 	DWORD dwSelectedThreadId = pThread->m_dwThreadId;
@@ -344,4 +314,41 @@ void ScriptView::RunScript()
 
 		ClearNewScriptWindowState();
 	}
+}
+
+[[nodiscard]] bool ScriptView::IsScriptThreadIdPaused(DWORD dwThreadId)
+{
+	std::lock_guard lock(m_blacklistedScriptThreadIdsMutex);
+
+	return std::find(m_rgdwBlacklistedScriptThreadIds.begin(), m_rgdwBlacklistedScriptThreadIds.end(), dwThreadId) != m_rgdwBlacklistedScriptThreadIds.end();
+}
+
+void ScriptView::PauseScriptThreadId(DWORD dwThreadId)
+{
+	std::lock_guard lock(m_blacklistedScriptThreadIdsMutex);
+
+	m_rgdwBlacklistedScriptThreadIds.push_back(dwThreadId);
+}
+
+void ScriptView::UnpauseScriptThreadId(DWORD dwThreadId)
+{
+	std::lock_guard lock(m_blacklistedScriptThreadIdsMutex);
+
+	const auto& itScriptThreadId = std::find(m_rgdwBlacklistedScriptThreadIds.begin(), m_rgdwBlacklistedScriptThreadIds.end(), dwThreadId);
+
+	if (itScriptThreadId != m_rgdwBlacklistedScriptThreadIds.end())
+	{
+		m_rgdwBlacklistedScriptThreadIds.erase(itScriptThreadId);
+	}
+}
+
+void ScriptView::ClearNewScriptWindowState()
+{
+	m_bIsNewScriptWindowOpen = false;
+
+	m_rgchNewScriptNameBuffer.fill(0);
+
+	m_iNewScriptStackSize = 0;
+
+	m_bDoDispatchNewScript = false;
 }

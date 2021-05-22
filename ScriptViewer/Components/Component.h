@@ -28,33 +28,33 @@ public:
 		g_rgpComponents.erase(std::find(g_rgpComponents.begin(), g_rgpComponents.end(), this));
 	}
 
-	Component(Component&) = delete;
+	Component(const Component&) = delete;
 
-	Component& operator=(Component& component) = delete;
+	Component& operator=(const Component&) = delete;
 
 	Component(Component&& component) noexcept : Component()
 	{
 		m_bIsOpen = component.m_bIsOpen;
 	}
 
-	Component& operator=(Component&& component) = delete;
+	Component& operator=(Component&&) = delete;
 
-	virtual inline bool RunHook(rage::scrThread* pScrThread)
+	virtual bool RunHook(rage::scrThread* pScrThread)
 	{
 		return true;
 	}
 
-	virtual inline void RunCallback(rage::scrThread* pScrThread, DWORD64 qwExecutionTime)
+	virtual void RunCallback(rage::scrThread* pScrThread, DWORD64 qwExecutionTime)
 	{
 
 	}
 
-	virtual inline void RunImGui()
+	virtual void RunImGui()
 	{
 		
 	}
 
-	virtual inline void RunScript()
+	virtual void RunScript()
 	{
 
 	}

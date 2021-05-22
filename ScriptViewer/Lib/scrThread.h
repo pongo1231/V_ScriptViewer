@@ -28,7 +28,8 @@ namespace rage
 		DWORD m_dwThreadId;
 		DWORD m_dwProgramId;
 		DWORD dwSomething2;
-		char pad[188];
+		DWORD m_dwIP;
+		char pad[184];
 		char m_szName[32];
 		char pad3[100];
 		char chSomething3;

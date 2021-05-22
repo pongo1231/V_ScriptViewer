@@ -261,6 +261,7 @@ void Main::Uninit()
 
 static bool InitSwapChainHooks()
 {
+	// Create dummy device and swap chain to patch IDXGISwapChain's vftable
 	DXGI_SWAP_CHAIN_DESC swapChainDesc{};
 
 	swapChainDesc.BufferDesc.Width = 640;

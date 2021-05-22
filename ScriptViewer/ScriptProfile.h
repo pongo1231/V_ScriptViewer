@@ -20,6 +20,16 @@ private:
 public:
 	static inline eScriptProfileType ms_eProfileType = eScriptProfileType::HIGHEST_TIME;
 
+	ScriptProfile() = default;
+
+	ScriptProfile(const ScriptProfile&) = delete;
+
+	ScriptProfile& operator=(const ScriptProfile&) = delete;
+
+	ScriptProfile(ScriptProfile&&) = delete;
+
+	ScriptProfile& operator=(ScriptProfile&&) = delete;
+
 	inline void Add(DWORD64 qwTimeNs)
 	{
 		switch (ms_eProfileType)
