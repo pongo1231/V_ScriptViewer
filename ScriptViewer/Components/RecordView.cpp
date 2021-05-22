@@ -38,6 +38,7 @@ void RecordView::RunImGui()
 			m_dictScriptProfiles.clear();
 			m_rgFinalScriptProfileSet.clear();
 
+			m_qwRecordBeginTimestamp = GetTickCount64();
 			m_fRecordTimeSecs = 0.f;
 		}
 		else
@@ -61,7 +62,7 @@ void RecordView::RunImGui()
 	ImGui::PushItemWidth(-1);
 
 	if (ImGui::BeginTable("", 2, ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable
-		| ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchSame, { 0, -25.f }))
+		| ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchSame))
 	{
 		ImGui::TableSetupColumn("Script Name", 0, .7f);
 		ImGui::TableSetupColumn("Total Exec Time", 0, .3f);
@@ -115,5 +116,17 @@ void RecordView::RunScript()
 		return;
 	}
 
-	m_fRecordTimeSecs += GET_FRAME_TIME();
+	if (g_bPauseGameOnOverlay)
+	{
+		m_fRecordTimeSecs = (GetTickCount64() - m_qwRecordBeginTimestamp) / 1000.f;
+	}
+	else
+	{
+		int ciFrames = GET_FRAME_COUNT();
+		if (m_ciFrames < ciFrames)
+		{
+			m_ciFrames = ciFrames;
+			m_fRecordTimeSecs += GET_FRAME_TIME();
+		}
+	}
 }

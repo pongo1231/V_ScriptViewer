@@ -26,10 +26,21 @@ void ComponentView::RunImGui()
 
 	for (ComponentEntry& componentEntry : m_rgComponents)
 	{
+		if (componentEntry.m_pComponent->m_bIsOpen)
+		{
+			ImGui::PushStyleColor(ImGui::GetColumnIndex(), { 0.f, 1.f, 0.f, 1.f });
+		}
+		else
+		{
+			ImGui::PushStyleColor(ImGui::GetColumnIndex(), { 1.f, 0.f, 0.f, 1.f });
+		}
+
 		if (ImGui::Button(componentEntry.m_szComponentName))
 		{
 			componentEntry.m_pComponent->m_bIsOpen = !componentEntry.m_pComponent->m_bIsOpen;
 		}
+
+		ImGui::PopStyleColor();
 	}
 
 	ImGui::End();

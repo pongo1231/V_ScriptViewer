@@ -232,6 +232,8 @@ private:
 
 	std::atomic<bool> m_bIsRecording = false;
 	std::atomic<float> m_fRecordTimeSecs = 0.f;
+	DWORD64 m_qwRecordBeginTimestamp = 0;
+	int m_ciFrames = 0;
 
 public:
 	RecordView() : Component()
