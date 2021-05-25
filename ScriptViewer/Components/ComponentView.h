@@ -16,18 +16,6 @@ private:
 
 		}
 
-		ComponentEntry(const ComponentEntry&) = delete;
-
-		ComponentEntry& operator=(const ComponentEntry&) = delete;
-
-		ComponentEntry(ComponentEntry&& componentEntry) noexcept
-			: ComponentEntry(componentEntry.m_szComponentName, std::forward<std::unique_ptr<Component>>(componentEntry.m_pComponent))
-		{
-
-		}
-
-		ComponentEntry& operator=(ComponentEntry&&) = delete;
-
 		const char* const m_szComponentName;
 		std::unique_ptr<Component> m_pComponent;
 	};
@@ -36,17 +24,6 @@ private:
 
 public:
 	ComponentView();
-
-	ComponentView(ComponentView&) = delete;
-
-	ComponentView& operator=(ComponentView&) = delete;
-
-	ComponentView(ComponentView&& componentView) noexcept : Component(std::move(componentView))
-	{
-
-	}
-
-	ComponentView& operator=(ComponentView&&) = delete;
 
 	virtual void RunImGui() override;
 };

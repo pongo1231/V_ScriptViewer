@@ -2,7 +2,6 @@
 
 #include "nativesNoNamespaces.h"
 #include "Main.h"
-#include "ScriptProfile.h"
 
 #include "Components/Component.h"
 #include "Components/ComponentView.h"
@@ -15,6 +14,7 @@
 #include "Memory/Handle.h"
 #include "Memory/Hook.h"
 #include "Memory/Hwnd.h"
+#include "Memory/ScriptRoutineTracer.h"
 
 #include "Util/Logging.h"
 #include "Util/Misc.h"
@@ -45,5 +45,4 @@
 #include <sstream>
 #include <vector>
 #include <unordered_map>
-#include <chrono>
 #include <mutex>

@@ -224,11 +224,11 @@ static __int64 HK_ScriptRunHook(rage::scrThread* pScrThread)
 		return 0;
 	}
 
-	const auto& startTimestamp = std::chrono::high_resolution_clock::now();
+	const auto& startTimestamp = Util::GetTimeMcS();
 
 	__int64 result = OG_ScriptRunHook(pScrThread);
 
-	DWORD64 qwExecutionTime = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - startTimestamp).count();
+	DWORD64 qwExecutionTime = Util::GetTimeMcS() - startTimestamp;
 
 	for (Component* pComponent : g_rgpComponents)
 	{

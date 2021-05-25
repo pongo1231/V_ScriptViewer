@@ -7,16 +7,82 @@
 #include <mutex>
 #include <atomic>
 #include <array>
-#include <chrono>
 
 typedef unsigned short WORD;
 typedef unsigned long DWORD;
+typedef unsigned long long DWORD64;
 
 class ScriptProfile;
 
 class ScriptView : public Component
 {
 private:
+	enum class eScriptProfileType
+	{
+		HIGHEST_TIME,
+		AVERAGE_TIME
+	};
+
+	class ScriptProfile
+	{
+	private:
+		std::atomic<DWORD64> m_qwProfilingTimeMcS = 0;
+		std::atomic<DWORD64> m_cqwExecutions = 0;
+		float m_fCurExecutionTimeMs = 0.f;
+
+	public:
+		static inline eScriptProfileType ms_eProfileType = eScriptProfileType::HIGHEST_TIME;
+
+		ScriptProfile() = default;
+
+		ScriptProfile(const ScriptProfile&) = delete;
+
+		ScriptProfile& operator=(const ScriptProfile&) = delete;
+
+		ScriptProfile(ScriptProfile&&) = delete;
+
+		ScriptProfile& operator=(ScriptProfile&&) = delete;
+
+		inline void Add(DWORD64 qwTimeMcS)
+		{
+			switch (ms_eProfileType)
+			{
+			case eScriptProfileType::HIGHEST_TIME:
+				if (qwTimeMcS > m_qwProfilingTimeMcS)
+				{
+					m_qwProfilingTimeMcS = qwTimeMcS;
+				}
+
+				break;
+			case eScriptProfileType::AVERAGE_TIME:
+				m_qwProfilingTimeMcS += qwTimeMcS;
+
+				m_cqwExecutions++;
+
+				break;
+			}
+		}
+
+		inline void NewRound()
+		{
+			if (ms_eProfileType == eScriptProfileType::AVERAGE_TIME)
+			{
+				m_qwProfilingTimeMcS = !m_cqwExecutions ? 0 : m_qwProfilingTimeMcS / m_cqwExecutions;
+			}
+
+			m_fCurExecutionTimeMs = m_qwProfilingTimeMcS / 1000.f;
+
+			m_qwProfilingTimeMcS = 0;
+
+			m_cqwExecutions = 0;
+		}
+
+		inline float [[nodiscard]] GetMs() const
+		{
+			return m_fCurExecutionTimeMs;
+		}
+	};
+
 	std::unordered_map<DWORD, ScriptProfile> m_dcScriptProfiles;
 
 	std::vector<DWORD> m_rgdwBlacklistedScriptThreadIds;
@@ -41,17 +107,6 @@ public:
 	{
 		m_bIsOpen = true;
 	}
-
-	ScriptView(const ScriptView&) = delete;
-
-	ScriptView& operator=(const ScriptView&) = delete;
-
-	ScriptView(ScriptView&& scriptView) noexcept : Component(std::move(scriptView))
-	{
-
-	}
-
-	ScriptView& operator=(ScriptView&&) = delete;
 
 	virtual bool RunHook(rage::scrThread* pScrThread) override;
 
