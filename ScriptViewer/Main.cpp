@@ -331,10 +331,10 @@ void Main::Loop()
 		Handle handle;
 
 		// Had no luck with SetWindowsHookEx so we're just going to straight up hook WndProc
-		handle = Memory::FindPattern("48 8D 05 ? ? ? ? 33 C9 44 89 75 20");
+		handle = Memory::FindPattern("48 83 EC 28 33 D2 B1 01 E8 ? ? ? ? 83 F8 01 0F 97 C0 48 83 C4 28 C3");
 		if (handle.IsValid())
 		{
-			Memory::AddHook(handle.At(2).Into().Get<void>(), HK_WndProc, &OG_WndProc);
+			Memory::AddHook(handle.At(24).Get<void>(), HK_WndProc, &OG_WndProc);
 
 			LOG("Hooked WndProc");
 		}
@@ -342,7 +342,7 @@ void Main::Loop()
 #ifdef RELOADABLE
 		handle = Memory::FindPattern("48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 48 83 EC 20 48 8D 81 D0 00 00 00");
 #else
-		handle = Memory::FindPattern("80 3D ? ? ? ? ? F3 0F 10 0D ? ? ? ? F3 0F 59 0D");
+		handle = Memory::FindPattern("48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 80 B9 46 01 00 00 00");
 #endif
 		if (handle.IsValid())
 		{

@@ -47,9 +47,14 @@ namespace rage
 
 		inline [[nodiscard]] rage::_scrStack* GetScriptStack()
 		{
-			for (WORD wStackIdx = 0; wStackIdx < *rage::scrThread::ms_pcwStacks; wStackIdx++)
+			if (!ms_pcwStacks)
 			{
-				rage::_scrStack& stack = rage::scrThread::ms_pStacks[wStackIdx];
+				return nullptr;
+			}
+
+			for (WORD wStackIdx = 0; wStackIdx < *ms_pcwStacks; wStackIdx++)
+			{
+				rage::_scrStack& stack = ms_pStacks[wStackIdx];
 
 				if (stack.m_pScrThread == this)
 				{
