@@ -29,11 +29,10 @@ typedef unsigned int DWORD_t;
 
 #include "../vendor/minhook/include/MinHook.h"
 
-#include "../vendor/imgui/libs/imgui/backends/imgui_impl_dx11.h"
-#include "../vendor/imgui/libs/imgui/backends/imgui_impl_win32.h"
-#include "../vendor/imgui/libs/imgui/imgui.h"
-#include "../vendor/imgui/libs/imgui/imgui_internal.h"
-#include <setjmp.h>
+#include "../vendor/imgui/backends/imgui_impl_dx11.h"
+#include "../vendor/imgui/backends/imgui_impl_win32.h"
+#include "../vendor/imgui/imgui.h"
+#include "../vendor/imgui/imgui_internal.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <excpt.h>

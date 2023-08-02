@@ -13,7 +13,7 @@ void GlobalView::RunImGui()
 
 	if (ms_pGlobals && ms_pcwGlobals)
 	{
-		ImGui::ListBoxHeader("");
+		ImGui::BeginListBox("");
 
 		for (WORD wGlobalIdx = 0; wGlobalIdx < *ms_pcwGlobals; wGlobalIdx++)
 		{
@@ -26,7 +26,7 @@ void GlobalView::RunImGui()
 			}
 		}
 
-		ImGui::ListBoxFooter();
+		ImGui::EndListBox();
 	}
 
 	ImGui::End();
