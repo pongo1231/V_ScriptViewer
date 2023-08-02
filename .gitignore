@@ -333,3 +333,5 @@ ASALocalRun/
 
 # Custom
 dist/
+build/
+.cache/

@@ -74,7 +74,7 @@ void ScriptView::RunImGui()
 			}
 
 			const char* szScriptName = pThread->m_szName;
-			DWORD dwThreadId = pThread->m_dwThreadId;
+			DWORD_t dwThreadId = pThread->m_dwThreadId;
 
 			bool bIsScriptAboutToBeKilled = m_dwKillScriptThreadId == dwThreadId;
 			bool bIsScriptPaused = IsScriptThreadIdPaused(dwThreadId);
@@ -113,7 +113,8 @@ void ScriptView::RunImGui()
 					std::ostringstream oss;
 					oss << scriptProfile.GetMs() << "ms" << std::endl;
 
-					ImGui::Text(oss.str().c_str());
+					const auto &str = oss.str();
+					ImGui::Text("%s", str.c_str());
 				}
 			}
 
@@ -130,7 +131,8 @@ void ScriptView::RunImGui()
 						std::ostringstream oss;
 						oss << pStack->m_dwStackSize << std::endl;
 
-						ImGui::Text(oss.str().c_str());
+						auto str = oss.str();
+						ImGui::Text("%s", str.c_str());
 					}
 				}
 			}
@@ -150,17 +152,18 @@ void ScriptView::RunImGui()
 
 	ImGui::Spacing();
 
-	m_wSelectedItemIdx = min(m_wSelectedItemIdx, *rage::scrThread::ms_pcwThreads);
+	m_wSelectedItemIdx = std::min(m_wSelectedItemIdx, *rage::scrThread::ms_pcwThreads);
 
 	rage::scrThread* pThread = rage::scrThread::ms_ppThreads[m_wSelectedItemIdx];
 
 	std::string szSelectedScriptName = pThread->m_szName;
-	DWORD dwSelectedThreadId = pThread->m_dwThreadId;
+	DWORD_t dwSelectedThreadId = pThread->m_dwThreadId;
 
 #ifdef RELOADABLE
 	bool bIsSelectedScriptUnpausable = Util::IsCustomScriptName(szSelectedScriptName);
 #else
-	bool bIsSelectedScriptUnpausable = !_stricmp(szSelectedScriptName.c_str(), g_szFileName);
+	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+	bool bIsSelectedScriptUnpausable = !_wcsicmp(converter.from_bytes(szSelectedScriptName).c_str(), g_szFileName);
 #endif
 	bool bIsAnyScriptAboutToBeKilled = m_dwKillScriptThreadId;
 
@@ -336,21 +339,21 @@ void ScriptView::RunScript()
 	}
 }
 
-[[nodiscard]] bool ScriptView::IsScriptThreadIdPaused(DWORD dwThreadId)
+bool ScriptView::IsScriptThreadIdPaused(DWORD_t dwThreadId)
 {
 	std::lock_guard lock(m_blacklistedScriptThreadIdsMutex);
 
 	return std::find(m_rgdwBlacklistedScriptThreadIds.begin(), m_rgdwBlacklistedScriptThreadIds.end(), dwThreadId) != m_rgdwBlacklistedScriptThreadIds.end();
 }
 
-void ScriptView::PauseScriptThreadId(DWORD dwThreadId)
+void ScriptView::PauseScriptThreadId(DWORD_t dwThreadId)
 {
 	std::lock_guard lock(m_blacklistedScriptThreadIdsMutex);
 
 	m_rgdwBlacklistedScriptThreadIds.push_back(dwThreadId);
 }
 
-void ScriptView::UnpauseScriptThreadId(DWORD dwThreadId)
+void ScriptView::UnpauseScriptThreadId(DWORD_t dwThreadId)
 {
 	std::lock_guard lock(m_blacklistedScriptThreadIdsMutex);
 

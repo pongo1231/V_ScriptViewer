@@ -11,11 +11,14 @@
 #include <set>
 #include <mutex>
 
-typedef unsigned long DWORD;
+typedef unsigned int DWORD_t;
 typedef unsigned long long DWORD64;
 
 class ScriptProfile;
-class rage::scrThread;
+namespace rage
+{
+	class scrThread;
+}
 
 enum class ERoutineTraceType;
 
@@ -44,7 +47,7 @@ private:
 		class ScriptTrace
 		{
 		private:
-			DWORD m_dwScriptIP = 0;
+			DWORD_t m_dwScriptIP = 0;
 
 			DWORD64 m_qwScriptExecTimeMcS = 0;
 			float m_fScriptExecTimeSecs = 0.f;
@@ -52,7 +55,7 @@ private:
 			bool m_bScriptHasEnded = false;
 
 		public:
-			ScriptTrace(DWORD dwIP, DWORD64 qwExecTimeMcS = 0) : m_dwScriptIP(dwIP), m_qwScriptExecTimeMcS(qwExecTimeMcS)
+			ScriptTrace(DWORD_t dwIP, DWORD64 qwExecTimeMcS = 0) : m_dwScriptIP(dwIP), m_qwScriptExecTimeMcS(qwExecTimeMcS)
 			{
 
 			}
@@ -89,7 +92,7 @@ private:
 				return *this;
 			}
 
-			bool operator==(DWORD dwIP) const
+			bool operator==(DWORD_t dwIP) const
 			{
 				return m_dwScriptIP == dwIP;
 			}
@@ -104,7 +107,7 @@ private:
 				return m_qwScriptExecTimeMcS > scriptTrace.m_qwScriptExecTimeMcS;
 			}
 
-			virtual inline [[nodiscard]] std::unique_ptr<ScriptTrace> Clone() = 0;
+			virtual inline std::unique_ptr<ScriptTrace> Clone() = 0;
 
 			inline void Add(DWORD64 qwExecTimeMcS)
 			{
@@ -137,17 +140,17 @@ private:
 			}
 
 		public:
-			inline [[nodiscard]] DWORD GetIP() const
+			inline DWORD_t GetIP() const
 			{
 				return m_dwScriptIP;
 			}
 
-			inline [[nodiscard]] bool HasEnded() const
+			inline bool HasEnded() const
 			{
 				return m_bScriptHasEnded;
 			}
 
-			inline [[nodiscard]] float GetSecs() const
+			inline float GetSecs() const
 			{
 				if (HasEnded())
 				{
@@ -157,7 +160,7 @@ private:
 				return !m_qwScriptExecTimeMcS ? m_qwScriptExecTimeMcS : m_qwScriptExecTimeMcS / 1000000.f;
 			}
 
-			inline [[nodiscard]] DWORD64 GetMcS() const
+			inline DWORD64 GetMcS() const
 			{
 				return m_qwScriptExecTimeMcS;
 			}
@@ -166,12 +169,12 @@ private:
 		class ScriptIPTrace : public ScriptTrace
 		{
 		public:
-			ScriptIPTrace(DWORD dwIP, DWORD64 qwExecTimeMcS = 0) : ScriptTrace(dwIP, qwExecTimeMcS)
+			ScriptIPTrace(DWORD_t dwIP, DWORD64 qwExecTimeMcS = 0) : ScriptTrace(dwIP, qwExecTimeMcS)
 			{
 
 			}
 
-			virtual inline [[nodiscard]] std::unique_ptr<ScriptTrace> Clone() override
+			virtual inline std::unique_ptr<ScriptTrace> Clone() override
 			{
 				return std::make_unique<ScriptIPTrace>(*this);
 			}
@@ -185,7 +188,7 @@ private:
 			bool m_bIsPaused = false;
 
 		public:
-			ScriptRoutineTrace(DWORD dwIP, DWORD64 qwExecTimeMcS = 0) : ScriptTrace(dwIP, qwExecTimeMcS)
+			ScriptRoutineTrace(DWORD_t dwIP, DWORD64 qwExecTimeMcS = 0) : ScriptTrace(dwIP, qwExecTimeMcS)
 			{
 				m_qwTimestamp = Util::GetTimeMcS();
 			}
@@ -216,7 +219,7 @@ private:
 				return *this;
 			}
 
-			virtual inline [[nodiscard]] std::unique_ptr<ScriptTrace> Clone() override
+			virtual inline std::unique_ptr<ScriptTrace> Clone() override
 			{
 				return std::make_unique<ScriptRoutineTrace>(*this);
 			}
@@ -321,22 +324,22 @@ private:
 			return m_qwExecTimeMcS > scriptProfile.m_qwExecTimeMcS;
 		}
 
-		inline [[nodiscard]] const std::string& GetScriptName() const
+		inline const std::string& GetScriptName() const
 		{
 			return m_szScriptName;
 		}
 
-		inline [[nodiscard]] ETraceMethod GetUsedTraceMethod() const
+		inline ETraceMethod GetUsedTraceMethod() const
 		{
 			return m_eTraceMethod;
 		}
 
-		inline [[nodiscard]] bool IsCustomScript() const
+		inline bool IsCustomScript() const
 		{
 			return m_bIsCustomScript;
 		}
 
-		inline void AddWithTrace(DWORD dwIP, DWORD64 qwExecTimeMcS)
+		inline void AddWithTrace(DWORD_t dwIP, DWORD64 qwExecTimeMcS)
 		{
 			if (m_bHasEnded)
 			{
@@ -420,7 +423,7 @@ private:
 			}
 		}
 
-		inline [[nodiscard]] float GetSecs() const
+		inline float GetSecs() const
 		{
 			if (m_bHasEnded)
 			{
@@ -430,7 +433,7 @@ private:
 			return !m_qwExecTimeMcS ? m_qwExecTimeMcS : m_qwExecTimeMcS / 1000000.f;
 		}
 
-		inline [[nodiscard]] const auto& GetTraces() const
+		inline const auto& GetTraces() const
 		{
 			if (m_bHasEnded)
 			{
@@ -477,5 +480,5 @@ public:
 
 	virtual void RunScript() override;
 
-	virtual void ScriptRoutineCallback(rage::scrThread* pThread, ERoutineTraceType eTraceType, DWORD dwEnterIP) override;
+	virtual void ScriptRoutineCallback(rage::scrThread* pThread, ERoutineTraceType eTraceType, DWORD_t dwEnterIP) override;
 };

@@ -250,12 +250,12 @@ void Main::Uninit()
 
 	if (ms_pPresentVftEntryAddr)
 	{
-		Memory::Write<void*>(ms_pPresentVftEntryAddr, *OG_OnPresence);
+		Memory::Write(ms_pPresentVftEntryAddr, *OG_OnPresence);
 	}
 
 	if (ms_pResizeBuffersAddr)
 	{
-		Memory::Write<void*>(ms_pResizeBuffersAddr, *OG_ResizeBuffers);
+		Memory::Write(ms_pResizeBuffersAddr, *OG_ResizeBuffers);
 	}
 }
 
@@ -286,7 +286,7 @@ static bool InitSwapChainHooks()
 
 	auto D3D11CreateDeviceAndSwapChain = reinterpret_cast<HRESULT(*)(IDXGIAdapter*, D3D_DRIVER_TYPE, HMODULE, UINT, const D3D_FEATURE_LEVEL*, UINT, UINT,
 		const DXGI_SWAP_CHAIN_DESC*, IDXGISwapChain**, ID3D11Device**, D3D_FEATURE_LEVEL*, ID3D11DeviceContext**)>
-		(GetProcAddress(GetModuleHandle("d3d11.dll"), "D3D11CreateDeviceAndSwapChain"));
+		(GetProcAddress(GetModuleHandle(L"d3d11.dll"), "D3D11CreateDeviceAndSwapChain"));
 
 	D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_WARP, NULL, 0, &featureLevel, 1, D3D11_SDK_VERSION, &swapChainDesc, &pSwapChain, NULL, NULL, NULL);
 
@@ -302,14 +302,14 @@ static bool InitSwapChainHooks()
 	ms_pPresentVftEntryAddr = handle.At(64).Get<void*>();
 	OG_OnPresence = *reinterpret_cast<HRESULT(**)(IDXGISwapChain*, UINT, UINT)>(ms_pPresentVftEntryAddr);
 
-	Memory::Write<void*>(ms_pPresentVftEntryAddr, HK_OnPresence);
+	Memory::Write(ms_pPresentVftEntryAddr, HK_OnPresence);
 
 	LOG("Hooked IDXGISwapChain::Present through vftable injection");
 
 	ms_pResizeBuffersAddr = handle.At(104).Get<void*>();
 	OG_ResizeBuffers = *reinterpret_cast<HRESULT(**)(IDXGISwapChain*, UINT, UINT, UINT, DXGI_FORMAT, UINT)>(ms_pResizeBuffersAddr);
 
-	Memory::Write<void*>(ms_pResizeBuffersAddr, HK_ResizeBuffers);
+	Memory::Write(ms_pResizeBuffersAddr, HK_ResizeBuffers);
 
 	LOG("Hooked IDXGISwapChain::ResizeBuffers through vftable injection");
 

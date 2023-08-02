@@ -1,12 +1,12 @@
 #include <stdafx.h>
 
-BOOL APIENTRY DllMain(HMODULE hInstance, DWORD reason, LPVOID lpReserved)
+BOOL APIENTRY DllMain(HMODULE hInstance, DWORD_t reason, LPVOID lpReserved)
 {
 	switch (reason)
 	{
 	case DLL_PROCESS_ATTACH:
 		GetModuleFileName(hInstance, g_szFileName, MAX_PATH);
-		strcpy_s(g_szFileName, strrchr(g_szFileName, '\\') + 1);
+		wcscpy_s(g_szFileName, wcsrchr(g_szFileName, '\\') + 1);
 
 		Memory::Init();
 

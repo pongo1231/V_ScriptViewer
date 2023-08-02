@@ -9,7 +9,7 @@
 #include <array>
 
 typedef unsigned short WORD;
-typedef unsigned long DWORD;
+typedef unsigned int DWORD_t;
 typedef unsigned long long DWORD64;
 
 class ScriptProfile;
@@ -77,7 +77,7 @@ private:
 			m_cqwExecutions = 0;
 		}
 
-		inline float [[nodiscard]] GetMs() const
+		inline float GetMs() const
 		{
 			return m_fCurExecutionTimeMs;
 		}
@@ -117,11 +117,11 @@ public:
 	virtual void RunScript() override;
 
 private:
-	[[nodiscard]] bool IsScriptThreadIdPaused(DWORD dwThreadId);
+	bool IsScriptThreadIdPaused(DWORD_t dwThreadId);
 
-	void PauseScriptThreadId(DWORD dwThreadId);
+	void PauseScriptThreadId(DWORD_t dwThreadId);
 
-	void UnpauseScriptThreadId(DWORD dwThreadId);
+	void UnpauseScriptThreadId(DWORD_t dwThreadId);
 
 	void ClearNewScriptWindowState();
 };

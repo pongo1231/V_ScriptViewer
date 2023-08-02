@@ -130,7 +130,8 @@ void RecordView::RunImGui()
 	std::ostringstream oss;
 	oss << "Time: " << m_fRecordTimeSecs << "s" << std::endl;
 
-	ImGui::Text(oss.str().c_str());
+	const auto &str = oss.str();
+	ImGui::Text("%s", str.c_str());
 
 	if (m_bIsRecording)
 	{
@@ -165,7 +166,8 @@ void RecordView::RunImGui()
 			bool bShowChildren = false;
 			if (scriptProfile.IsCustomScript())
 			{
-				ImGui::Text(scriptProfile.GetScriptName().c_str());
+				const auto &str = scriptProfile.GetScriptName();
+				ImGui::Text("%s", str.c_str());
 			}
 			else
 			{
@@ -186,7 +188,8 @@ void RecordView::RunImGui()
 
 					oss << "0x" << std::uppercase << std::hex << scriptTrace->GetIP() << std::endl;
 
-					ImGui::Text(oss.str().c_str());
+					const auto &str = oss.str();
+					ImGui::Text("%s", str.c_str());
 				}
 			}
 
@@ -195,7 +198,8 @@ void RecordView::RunImGui()
 			std::ostringstream oss;
 			oss << scriptProfile.GetSecs() << "s" << std::endl;
 
-			ImGui::Text(oss.str().c_str());
+			const auto &str = oss.str();
+			ImGui::Text("%s", str.c_str());
 
 			if (bShowChildren)
 			{
@@ -204,7 +208,8 @@ void RecordView::RunImGui()
 					std::ostringstream oss;
 					oss << "\t" << scriptTrace->GetSecs() << "s" << std::endl;
 
-					ImGui::Text(oss.str().c_str());
+					const auto &str = oss.str();
+					ImGui::Text("%s", str.c_str());
 				}
 			}
 
@@ -258,7 +263,7 @@ void RecordView::RunScript()
 	}
 }
 
-void RecordView::ScriptRoutineCallback(rage::scrThread* pThread, ERoutineTraceType eTraceType, DWORD dwEnterIP)
+void RecordView::ScriptRoutineCallback(rage::scrThread* pThread, ERoutineTraceType eTraceType, DWORD_t dwEnterIP)
 {
 	std::lock_guard lock(m_scriptProfilesMutex);
 

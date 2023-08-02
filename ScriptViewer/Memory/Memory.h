@@ -1,9 +1,10 @@
 #pragma once
 
+#include "../vendor/minhook/include/MinHook.h"
+
 #include <string>
 
 class Handle;
-enum MH_STATUS : int;
 
 class HWND__;
 typedef HWND__* HWND;
@@ -19,18 +20,18 @@ namespace Memory
 	MH_STATUS AddHook(void* pTarget, void* pDetour, void* ppOrig);
 	
 	template <typename T>
-	inline void Write(T* pAddr, T value, int count = 1)
+	inline void Write(void* pAddr, T value, int count = 1)
 	{
-		DWORD dwOldProtect;
-		VirtualProtect(pAddr, sizeof(T) * count, PAGE_EXECUTE_READWRITE, &dwOldProtect);
+		DWORD_t dwOldProtect;
+		VirtualProtect(static_cast<T*>(pAddr), sizeof(T) * count, PAGE_EXECUTE_READWRITE, &dwOldProtect);
 
 		for (int i = 0; i < count; i++)
 		{
-			pAddr[i] = value;
+			static_cast<T*>(pAddr)[i] = value;
 		}
 
-		VirtualProtect(pAddr, sizeof(T) * count, dwOldProtect, &dwOldProtect);
-	}
+		VirtualProtect(static_cast<T*>(pAddr), sizeof(T) * count, dwOldProtect, &dwOldProtect);
+    }
 
 	const char* const GetTypeName(__int64 vptr);
 }

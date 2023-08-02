@@ -1,4 +1,5 @@
 #include <stdafx.h>
+#include <winnt.h>
 
 #include "ScriptRoutineTracer.h"
 
@@ -35,9 +36,9 @@ namespace Memory
 	}
 }
 
-static int HandleCallInstr(_EXCEPTION_POINTERS* pExInfo)
+static int HandleCallInstr(PEXCEPTION_RECORD pRecord, PCONTEXT pContext)
 {
-	if (pExInfo->ExceptionRecord->ExceptionCode != EXCEPTION_BREAKPOINT)
+	if (pRecord->ExceptionCode != EXCEPTION_BREAKPOINT)
 	{
 		return EXCEPTION_CONTINUE_SEARCH;
 	}
@@ -45,20 +46,20 @@ static int HandleCallInstr(_EXCEPTION_POINTERS* pExInfo)
 	rage::scrThread* pThread = nullptr;
 	for (WORD wScriptIdx = 0; wScriptIdx < *rage::scrThread::ms_pcwThreads; wScriptIdx++)
 	{
-		if (rage::scrThread::ms_ppThreads[wScriptIdx]->m_dwThreadId == *reinterpret_cast<DWORD*>(pExInfo->ContextRecord->R15) /* thread id */)
+		if (rage::scrThread::ms_ppThreads[wScriptIdx]->m_dwThreadId == *reinterpret_cast<DWORD*>(pContext->R15) /* thread id */)
 		{
 			pThread = rage::scrThread::ms_ppThreads[wScriptIdx];
 		}
 	}
 
-	char* pchCurInstrAddr = reinterpret_cast<char*>(pExInfo->ContextRecord->Rip);
+	char* pchCurInstrAddr = reinterpret_cast<char*>(pContext->Rip);
 	char* pchNextInstrAddr = pchCurInstrAddr + 3;
 
 	if (pchCurInstrAddr == ms_chEnterTrap || pchCurInstrAddr == ms_chLeaveTrap)
 	{
 		if (pchCurInstrAddr == ms_chEnterTrap && pThread)
 		{
-			DWORD dwIP = pExInfo->ContextRecord->Rdi - pExInfo->ContextRecord->Rsi - 5;
+			DWORD_t dwIP = pContext->Rdi - pContext->Rsi - 5;
 
 			for (ScriptRoutineTracer* pScriptRoutineTracer : ms_rgScriptRoutineTracers)
 			{
@@ -82,7 +83,7 @@ static int HandleCallInstr(_EXCEPTION_POINTERS* pExInfo)
 	}
 	else
 	{
-		char* pchPrevInstrAddr = reinterpret_cast<char*>(pExInfo->ContextRecord->Rip - 3);
+		char* pchPrevInstrAddr = reinterpret_cast<char*>(pContext->Rip - 3);
 
 		if (pchPrevInstrAddr == ms_chEnterTrap)
 		{
@@ -118,10 +119,11 @@ __int64 HK_rage__scrThread___RunInstr(__int64 a1, __int64** a2, __int64 a3, DWOR
 	{
 		return OG_rage__scrThread___RunInstr(a1, a2, a3, pDwThreadId);
 	}
-	__except (HandleCallInstr(GetExceptionInformation()))
+	__except (info, context)
 	{
-
+		HandleCallInstr(info, context);
 	}
+	__end
 }
 
 static void OnHook()

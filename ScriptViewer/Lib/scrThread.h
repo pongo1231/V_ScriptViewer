@@ -3,7 +3,7 @@
 #include "../Memory/Hook.h"
 
 typedef unsigned short WORD;
-typedef unsigned long DWORD;
+typedef unsigned int DWORD_t;
 
 namespace rage
 {
@@ -12,7 +12,7 @@ namespace rage
 	struct _scrStack
 	{
 		rage::scrThread* m_pScrThread;
-		DWORD m_dwStackSize;
+		DWORD_t m_dwStackSize;
 		void* m_pAllocatedMemory;
 	};
 
@@ -25,10 +25,10 @@ namespace rage
 		static inline _scrStack* ms_pStacks = nullptr;
 		static inline WORD* ms_pcwStacks = nullptr;
 
-		DWORD m_dwThreadId;
-		DWORD m_dwProgramId;
-		DWORD dwSomething2;
-		DWORD m_dwIP;
+		DWORD_t m_dwThreadId;
+		DWORD_t m_dwProgramId;
+		DWORD_t dwSomething2;
+		DWORD_t m_dwIP;
 		char pad[184];
 		char m_szName[32];
 		char pad3[100];
@@ -45,7 +45,7 @@ namespace rage
 
 		virtual __int64 Kill() = 0;
 
-		inline [[nodiscard]] rage::_scrStack* GetScriptStack()
+		inline rage::_scrStack* GetScriptStack()
 		{
 			if (!ms_pcwStacks)
 			{

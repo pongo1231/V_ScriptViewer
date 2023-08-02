@@ -1,5 +1,11 @@
 #pragma once
-#include "../vendor/scripthookv/inc/natives.h"
+
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include "../vendor/scripthookv/natives.h"
+
+#include <cstring>
+#include <ctype.h>
 
 using namespace PLAYER;
 using namespace ENTITY;
@@ -45,7 +51,7 @@ inline Hash GET_HASH_KEY(const char* string)
 {
 	int length = strlen(string);
 
-	DWORD hash, i;
+	DWORD_t hash, i;
 	for (hash = i = 0; i < length; ++i)
 	{
 		hash += tolower(string[i]);
