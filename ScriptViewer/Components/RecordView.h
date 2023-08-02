@@ -6,6 +6,7 @@
 
 #include "../Util/Logging.h"
 
+#include <atomic>
 #include <mutex>
 #include <set>
 #include <unordered_map>

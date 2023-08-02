@@ -75,7 +75,7 @@ void ScriptView::RunImGui()
 				continue;
 			}
 
-			const char *szScriptName      = pThread->m_szName;
+			const char *szScriptName      = pThread->GetName();
 			DWORD_t dwThreadId            = pThread->m_dwThreadId;
 
 			bool bIsScriptAboutToBeKilled = m_dwKillScriptThreadId == dwThreadId;
@@ -158,7 +158,7 @@ void ScriptView::RunImGui()
 
 	rage::scrThread *pThread         = rage::scrThread::ms_ppThreads[m_wSelectedItemIdx];
 
-	std::string szSelectedScriptName = pThread->m_szName;
+	std::string szSelectedScriptName = pThread->GetName();
 	DWORD_t dwSelectedThreadId       = pThread->m_dwThreadId;
 
 #ifdef RELOADABLE

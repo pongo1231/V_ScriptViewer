@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include <stdafx.h>
 
 #include "Main.h"
 
@@ -346,9 +346,17 @@ void Main::Loop()
 
 #ifdef RELOADABLE
 		handle = Memory::FindPattern(
-		    "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 48 83 EC 20 48 8D 81 D0 00 00 00");
+		    "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 48 83 EC 20 48 8D 81 ? 00 00 00");
 #else
-		handle = Memory::FindPattern("48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 80 B9 46 01 00 00 00");
+		if (getGameVersion() < eGameVersion::VER_1_0_2944_0) // Just a guess, haven't checked if this is actually the
+		                                                     // build which broke it
+		{
+			handle = Memory::FindPattern("48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 80 B9 46 01 00 00 00");
+		}
+		else
+		{
+			handle = Memory::FindPattern("48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 80 B9 4E 01 00 00 00 8B FA");
+		}
 #endif
 		if (handle.IsValid())
 		{

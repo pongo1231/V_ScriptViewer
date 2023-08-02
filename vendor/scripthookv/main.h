@@ -1,17 +1,17 @@
 /*
-	THIS FILE IS A PART OF GTA V SCRIPT HOOK SDK
-				http://dev-c.com			
-		 (C) Alexander Blade 2015-2016
+    THIS FILE IS A PART OF GTA V SCRIPT HOOK SDK
+                http://dev-c.com
+         (C) Alexander Blade 2015-2016
 */
 
 #pragma once
 
-using BOOL = int;
-using BYTE = unsigned char;
-using WORD = unsigned short;
+using BOOL    = int;
+using BYTE    = unsigned char;
+using WORD    = unsigned short;
 using DWORD_t = unsigned int;
 
-//#define IMPORT __declspec(dllimport)
+// #define IMPORT __declspec(dllimport)
 #define IMPORT
 
 /* textures */
@@ -44,17 +44,16 @@ IMPORT int createTexture(const char *texFileName);
 //	1440x900 and 1024x768 screen resolutions, use windowed mode for this
 //	Can be called only in the same thread as natives
 
-IMPORT void drawTexture(int id, int index, int level, int time,
-	float sizeX, float sizeY, float centerX, float centerY,
-	float posX, float posY, float rotation, float screenHeightScaleFactor,
-	float r, float g, float b, float a);
+IMPORT void drawTexture(int id, int index, int level, int time, float sizeX, float sizeY, float centerX, float centerY,
+                        float posX, float posY, float rotation, float screenHeightScaleFactor, float r, float g,
+                        float b, float a);
 
 // IDXGISwapChain::Present callback
 // Called right before the actual Present method call, render test calls don't trigger callbacks
 // When the game uses DX10 it actually uses DX11 with DX10 feature level
 // Remember that you can't call natives inside
 // void OnPresent(IDXGISwapChain *swapChain);
-typedef void(*PresentCallback)(void *);
+typedef void (*PresentCallback)(void *);
 
 // Register IDXGISwapChain::Present callback
 // must be called on dll attach
@@ -67,7 +66,7 @@ IMPORT void presentCallbackUnregister(PresentCallback cb);
 /* keyboard */
 
 // DWORD key, WORD repeats, BYTE scanCode, BOOL isExtended, BOOL isWithAlt, BOOL wasDownBefore, BOOL isUpNow
-typedef void(*KeyboardHandler)(DWORD_t, WORD, BYTE, BOOL, BOOL, BOOL, BOOL);
+typedef void (*KeyboardHandler)(DWORD_t, WORD, BYTE, BOOL, BOOL, BOOL, BOOL);
 
 // Register keyboard handler
 // must be called on dll attach
@@ -79,18 +78,24 @@ IMPORT void keyboardHandlerUnregister(KeyboardHandler handler);
 
 /* scripts */
 
-IMPORT void scriptWait(DWORD_t time);
-IMPORT void scriptRegister(HMODULE module, void(*LP_SCRIPT_MAIN)());
-IMPORT void scriptRegisterAdditionalThread(HMODULE module, void(*LP_SCRIPT_MAIN)());
+IMPORT void scriptWait(DWORD time);
+IMPORT void scriptRegister(HMODULE module, void (*LP_SCRIPT_MAIN)());
+IMPORT void scriptRegisterAdditionalThread(HMODULE module, void (*LP_SCRIPT_MAIN)());
 IMPORT void scriptUnregister(HMODULE module);
-IMPORT void scriptUnregister(void(*LP_SCRIPT_MAIN)()); // deprecated
+IMPORT void scriptUnregister(void (*LP_SCRIPT_MAIN)()); // deprecated
 
 IMPORT void nativeInit(UINT64 hash);
 IMPORT void nativePush64(UINT64 val);
 IMPORT PUINT64 nativeCall();
 
-static void WAIT(DWORD_t time) { scriptWait(time); }
-static void TERMINATE() { WAIT(MAXDWORD); }
+static void WAIT(DWORD_t time)
+{
+	scriptWait(time);
+}
+static void TERMINATE()
+{
+	WAIT(MAXDWORD);
+}
 
 // Returns pointer to global variable
 // make sure that you check game version before accessing globals because
@@ -142,6 +147,108 @@ enum eGameVersion : int
 
 	VER_1_0_617_1_STEAM,
 	VER_1_0_617_1_NOSTEAM,
+
+	VER_1_0_678_1_STEAM,
+	VER_1_0_678_1_NOSTEAM,
+
+	VER_1_0_757_2_STEAM,
+	VER_1_0_757_2_NOSTEAM,
+
+	VER_1_0_757_4_STEAM,
+	VER_1_0_757_4_NOSTEAM,
+
+	VER_1_0_791_2_STEAM,
+	VER_1_0_791_2_NOSTEAM,
+
+	VER_1_0_877_1_STEAM,
+	VER_1_0_877_1_NOSTEAM,
+
+	VER_1_0_944_2_STEAM,
+	VER_1_0_944_2_NOSTEAM,
+
+	VER_1_0_1011_1_STEAM,
+	VER_1_0_1011_1_NOSTEAM,
+
+	VER_1_0_1032_1_STEAM,
+	VER_1_0_1032_1_NOSTEAM,
+
+	VER_1_0_1103_2_STEAM,
+	VER_1_0_1103_2_NOSTEAM,
+
+	VER_1_0_1180_2_STEAM,
+	VER_1_0_1180_2_NOSTEAM,
+
+	VER_1_0_1290_1_STEAM,
+	VER_1_0_1290_1_NOSTEAM,
+
+	VER_1_0_1365_1_STEAM,
+	VER_1_0_1365_1_NOSTEAM,
+
+	VER_1_0_1493_0_STEAM,
+	VER_1_0_1493_0_NOSTEAM,
+
+	VER_1_0_1493_1_STEAM,
+	VER_1_0_1493_1_NOSTEAM,
+
+	VER_1_0_1604_0_STEAM,
+	VER_1_0_1604_0_NOSTEAM,
+
+	VER_1_0_1604_1_STEAM,
+	VER_1_0_1604_1_NOSTEAM,
+
+	VER_1_0_1737_0_STEAM,
+	VER_1_0_1737_0_NOSTEAM,
+
+	VER_1_0_1737_6_STEAM,
+	VER_1_0_1737_6_NOSTEAM,
+
+	VER_1_0_1868_0_STEAM,
+	VER_1_0_1868_0_NOSTEAM,
+
+	VER_1_0_1868_1_STEAM,
+	VER_1_0_1868_1_NOSTEAM,
+
+	VER_1_0_1868_4_EGS,
+
+	VER_1_0_2060_0_STEAM,
+	VER_1_0_2060_0_NOSTEAM,
+
+	VER_1_0_2060_1_STEAM,
+	VER_1_0_2060_1_NOSTEAM,
+
+	VER_1_0_2189_0_STEAM,
+	VER_1_0_2189_0_NOSTEAM,
+
+	VER_1_0_2215_0_STEAM,
+	VER_1_0_2215_0_NOSTEAM,
+
+	VER_1_0_2245_0_STEAM,
+	VER_1_0_2245_0_NOSTEAM,
+
+	VER_1_0_2372_0_STEAM,
+	VER_1_0_2372_0_NOSTEAM,
+
+	VER_1_0_2545_0_STEAM,
+	VER_1_0_2545_0_NOSTEAM,
+
+	VER_1_0_2612_1_STEAM,
+	VER_1_0_2612_1_NOSTEAM,
+
+	VER_1_0_2628_2_STEAM,
+	VER_1_0_2628_2_NOSTEAM,
+
+	VER_1_0_2699_0_STEAM,
+	VER_1_0_2699_0_NOSTEAM,
+
+	VER_1_0_2699_16,
+
+	VER_1_0_2802_0,
+
+	VER_1_0_2824_0,
+
+	VER_1_0_2845_0,
+
+	VER_1_0_2944_0,
 
 	VER_SIZE,
 	VER_UNK = -1

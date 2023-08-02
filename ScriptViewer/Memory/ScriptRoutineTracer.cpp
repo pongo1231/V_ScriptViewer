@@ -38,9 +38,9 @@ namespace Memory
 	}
 }
 
-static int HandleCallInstr(PEXCEPTION_RECORD pRecord, PCONTEXT pContext)
+static long HandleCallInstr(EXCEPTION_POINTERS *exceptionInfo)
 {
-	if (pRecord->ExceptionCode != EXCEPTION_BREAKPOINT)
+	if (exceptionInfo->ExceptionRecord->ExceptionCode != EXCEPTION_BREAKPOINT)
 	{
 		return EXCEPTION_CONTINUE_SEARCH;
 	}
@@ -49,20 +49,20 @@ static int HandleCallInstr(PEXCEPTION_RECORD pRecord, PCONTEXT pContext)
 	for (WORD wScriptIdx = 0; wScriptIdx < *rage::scrThread::ms_pcwThreads; wScriptIdx++)
 	{
 		if (rage::scrThread::ms_ppThreads[wScriptIdx]->m_dwThreadId
-		    == *reinterpret_cast<DWORD *>(pContext->R15) /* thread id */)
+		    == *reinterpret_cast<DWORD *>(exceptionInfo->ContextRecord->R15) /* thread id */)
 		{
 			pThread = rage::scrThread::ms_ppThreads[wScriptIdx];
 		}
 	}
 
-	char *pchCurInstrAddr  = reinterpret_cast<char *>(pContext->Rip);
+	char *pchCurInstrAddr  = reinterpret_cast<char *>(exceptionInfo->ContextRecord->Rip);
 	char *pchNextInstrAddr = pchCurInstrAddr + 3;
 
 	if (pchCurInstrAddr == ms_chEnterTrap || pchCurInstrAddr == ms_chLeaveTrap)
 	{
 		if (pchCurInstrAddr == ms_chEnterTrap && pThread)
 		{
-			DWORD_t dwIP = pContext->Rdi - pContext->Rsi - 5;
+			DWORD_t dwIP = exceptionInfo->ContextRecord->Rdi - exceptionInfo->ContextRecord->Rsi - 5;
 
 			for (ScriptRoutineTracer *pScriptRoutineTracer : ms_rgScriptRoutineTracers)
 			{
@@ -86,7 +86,7 @@ static int HandleCallInstr(PEXCEPTION_RECORD pRecord, PCONTEXT pContext)
 	}
 	else
 	{
-		char *pchPrevInstrAddr = reinterpret_cast<char *>(pContext->Rip - 3);
+		char *pchPrevInstrAddr = reinterpret_cast<char *>(exceptionInfo->ContextRecord->Rip - 3);
 
 		if (pchPrevInstrAddr == ms_chEnterTrap)
 		{
@@ -118,15 +118,13 @@ __int64 HK_rage__scrThread___RunInstr(__int64 a1, __int64 **a2, __int64 a3, DWOR
 		*ms_chLeaveTrap = 0xCC;
 	}
 
-	__try
-	{
-		return OG_rage__scrThread___RunInstr(a1, a2, a3, pDwThreadId);
-	}
-	__except (info, context)
-	{
-		HandleCallInstr(info, context);
-	}
-	__end
+	auto handle = AddVectoredExceptionHandler(1, HandleCallInstr);
+
+	auto result = OG_rage__scrThread___RunInstr(a1, a2, a3, pDwThreadId);
+
+	RemoveVectoredExceptionHandler(handle);
+
+	return result;
 }
 
 static void OnHook()

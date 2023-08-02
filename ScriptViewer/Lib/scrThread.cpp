@@ -28,7 +28,14 @@ static void OnHook()
 		LOG("Found rage::scrThread::sm_Stacks");
 	}
 
-	handle = Memory::FindPattern("66 89 35 ? ? ? ? 85 FF"); // Still broken on 2545 :(
+	if (getGameVersion() < VER_1_0_2545_0_STEAM)
+	{
+		handle = Memory::FindPattern("66 89 35 ? ? ? ? 85 FF");
+	}
+	else
+	{
+		handle = Memory::FindPattern("66 89 3D ? ? ? ? 85 DB 7E 36 49 8B FD");
+	}
 	if (handle.IsValid())
 	{
 		rage::scrThread::ms_pcwStacks = handle.At(2).Into().Get<WORD>();

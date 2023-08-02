@@ -2,8 +2,10 @@
 
 #include "../Memory/Hook.h"
 
-typedef unsigned short WORD;
-typedef unsigned int DWORD_t;
+#include "../vendor/scripthookv/main.h"
+
+using WORD  = unsigned short;
+using DWORD = unsigned long;
 
 namespace rage
 {
@@ -12,7 +14,7 @@ namespace rage
 	struct _scrStack
 	{
 		rage::scrThread *m_pScrThread;
-		DWORD_t m_dwStackSize;
+		DWORD m_dwStackSize;
 		void *m_pAllocatedMemory;
 	};
 
@@ -25,11 +27,12 @@ namespace rage
 		static inline _scrStack *ms_pStacks    = nullptr;
 		static inline WORD *ms_pcwStacks       = nullptr;
 
-		DWORD_t m_dwThreadId;
-		DWORD_t m_dwProgramId;
-		DWORD_t dwSomething2;
-		DWORD_t m_dwIP;
+		DWORD m_dwThreadId;
+		DWORD m_dwProgramId;
+		DWORD dwSomething2;
+		DWORD m_dwIP;
 		char pad[184];
+		char pad_2699[4];
 		char m_szName[32];
 		char pad3[100];
 		char chSomething3;
@@ -44,6 +47,11 @@ namespace rage
 		virtual __int64 Update()                             = 0;
 
 		virtual __int64 Kill()                               = 0;
+
+		const char *GetName() const
+		{
+			return getGameVersion() < eGameVersion::VER_1_0_2699_0_STEAM ? pad_2699 : m_szName;
+		}
 
 		inline rage::_scrStack *GetScriptStack()
 		{
@@ -67,4 +75,4 @@ namespace rage
 	};
 }
 
-static_assert(sizeof(rage::scrThread) == 344);
+static_assert(sizeof(rage::scrThread) == 352);
