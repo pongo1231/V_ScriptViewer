@@ -5,6 +5,8 @@
 [submodule "vendor/imgui"]
 	path = vendor/imgui
 	url = https://github.com/Pesc0/imgui-cmake.git
+	ignore = dirty
 [submodule "vendor/shv"]
 	path = vendor/shv
 	url = https://github.com/pongo1231/shv_no_msvc
+	ignore = dirty

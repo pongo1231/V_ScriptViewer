@@ -13,13 +13,13 @@ enum class ERoutineTraceType : int
 
 class ScriptRoutineTracer
 {
-public:
-	virtual void ScriptRoutineCallback(rage::scrThread* pThread, ERoutineTraceType eTraceType, DWORD_t dwEnterIP) = 0;
+  public:
+	virtual void ScriptRoutineCallback(rage::scrThread *pThread, ERoutineTraceType eTraceType, DWORD_t dwEnterIP) = 0;
 };
 
 namespace Memory
 {
-	void RegisterTraceCallback(ScriptRoutineTracer* pScriptRoutineTracer);
+	void RegisterTraceCallback(ScriptRoutineTracer *pScriptRoutineTracer);
 
-	void UnregisterTraceCallback(ScriptRoutineTracer* pScriptRoutineTracer);
+	void UnregisterTraceCallback(ScriptRoutineTracer *pScriptRoutineTracer);
 }

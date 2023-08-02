@@ -8,7 +8,7 @@
 
 #pragma endregion
 
-bool RecordView::RunHook(rage::scrThread* pScrThread)
+bool RecordView::RunHook(rage::scrThread *pScrThread)
 {
 	if (!m_bIsRecording || m_eTraceMethod != ETraceMethod::Routine)
 	{
@@ -21,7 +21,8 @@ bool RecordView::RunHook(rage::scrThread* pScrThread)
 
 		if (m_dictScriptProfiles.find(pScrThread->m_dwThreadId) == m_dictScriptProfiles.end())
 		{
-			m_dictScriptProfiles.emplace(pScrThread->m_dwThreadId, DetailedScriptProfile(pScrThread->m_szName, ETraceMethod::Routine));
+			m_dictScriptProfiles.emplace(pScrThread->m_dwThreadId,
+			                             DetailedScriptProfile(pScrThread->m_szName, ETraceMethod::Routine));
 		}
 
 		m_dictScriptProfiles.at(pScrThread->m_dwThreadId).SendMsg(EMessageType::Resume);
@@ -30,7 +31,7 @@ bool RecordView::RunHook(rage::scrThread* pScrThread)
 	return true;
 }
 
-void RecordView::RunCallback(rage::scrThread* pScrThread, DWORD64 qwExecutionTime)
+void RecordView::RunCallback(rage::scrThread *pScrThread, DWORD64 qwExecutionTime)
 {
 	if (!m_bIsRecording)
 	{
@@ -43,7 +44,8 @@ void RecordView::RunCallback(rage::scrThread* pScrThread, DWORD64 qwExecutionTim
 
 	if (m_dictScriptProfiles.find(pScrThread->m_dwThreadId) == m_dictScriptProfiles.end())
 	{
-		m_dictScriptProfiles.emplace(pScrThread->m_dwThreadId, DetailedScriptProfile(pScrThread->m_szName, m_eTraceMethod, bIsCustomScript));
+		m_dictScriptProfiles.emplace(pScrThread->m_dwThreadId,
+		                             DetailedScriptProfile(pScrThread->m_szName, m_eTraceMethod, bIsCustomScript));
 	}
 
 	if (bIsCustomScript)
@@ -72,7 +74,7 @@ void RecordView::RunImGui()
 			m_qwLastCacheTimestamp = qwCurTimestamp;
 
 			m_rgFinalScriptProfileSet.clear();
-			for (const auto& pair : m_dictScriptProfiles)
+			for (const auto &pair : m_dictScriptProfiles)
 			{
 				DetailedScriptProfile scriptProfile = pair.second;
 				scriptProfile.End();
@@ -99,7 +101,7 @@ void RecordView::RunImGui()
 			m_rgFinalScriptProfileSet.clear();
 
 			m_qwRecordBeginTimestamp = GetTickCount64();
-			m_fRecordTimeSecs = 0.f;
+			m_fRecordTimeSecs        = 0.f;
 
 			if (m_eTraceMethod == ETraceMethod::Routine)
 			{
@@ -109,7 +111,7 @@ void RecordView::RunImGui()
 		else
 		{
 			m_rgFinalScriptProfileSet.clear();
-			for (auto& pair : m_dictScriptProfiles)
+			for (auto &pair : m_dictScriptProfiles)
 			{
 				pair.second.End();
 
@@ -140,9 +142,9 @@ void RecordView::RunImGui()
 
 	ImGui::Text("Trace by:");
 	ImGui::SameLine();
-	ImGui::RadioButton("WAIT calls", reinterpret_cast<int*>(&m_eTraceMethod), static_cast<char>(ETraceMethod::IP));
+	ImGui::RadioButton("WAIT calls", reinterpret_cast<int *>(&m_eTraceMethod), static_cast<char>(ETraceMethod::IP));
 	ImGui::SameLine();
-	ImGui::RadioButton("Routines", reinterpret_cast<int*>(&m_eTraceMethod), static_cast<char>(ETraceMethod::Routine));
+	ImGui::RadioButton("Routines", reinterpret_cast<int *>(&m_eTraceMethod), static_cast<char>(ETraceMethod::Routine));
 
 	if (m_bIsRecording)
 	{
@@ -151,8 +153,9 @@ void RecordView::RunImGui()
 
 	ImGui::PushItemWidth(-1);
 
-	if (ImGui::BeginTable("", 2, ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable
-		| ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchSame))
+	if (ImGui::BeginTable("", 2,
+	                      ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable
+	                          | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchSame))
 	{
 		ImGui::TableSetupColumn("Script Name", 0, .7f);
 		ImGui::TableSetupColumn("Total Exec Time", 0, .3f);
@@ -161,7 +164,7 @@ void RecordView::RunImGui()
 
 		ImGui::TableNextColumn();
 
-		for (const DetailedScriptProfile& scriptProfile : m_rgFinalScriptProfileSet)
+		for (const DetailedScriptProfile &scriptProfile : m_rgFinalScriptProfileSet)
 		{
 			bool bShowChildren = false;
 			if (scriptProfile.IsCustomScript())
@@ -176,7 +179,7 @@ void RecordView::RunImGui()
 
 			if (bShowChildren)
 			{
-				for (const auto& scriptTrace : scriptProfile.GetTraces())
+				for (const auto &scriptTrace : scriptProfile.GetTraces())
 				{
 					std::ostringstream oss;
 					oss << "\t";
@@ -203,7 +206,7 @@ void RecordView::RunImGui()
 
 			if (bShowChildren)
 			{
-				for (const auto& scriptTrace : scriptProfile.GetTraces())
+				for (const auto &scriptTrace : scriptProfile.GetTraces())
 				{
 					std::ostringstream oss;
 					oss << "\t" << scriptTrace->GetSecs() << "s" << std::endl;
@@ -242,7 +245,7 @@ void RecordView::RunScript()
 		int ciFrames = GET_FRAME_COUNT();
 		if (m_ciFrames < ciFrames)
 		{
-			m_ciFrames = ciFrames;
+			m_ciFrames       = ciFrames;
 
 			float fFrameTime = GET_FRAME_TIME();
 
@@ -250,26 +253,28 @@ void RecordView::RunScript()
 
 			/*if (m_eTraceMethod == ETraceMethod::Routine)
 			{
-				std::unique_lock lock(m_scriptProfilesMutex);
+			    std::unique_lock lock(m_scriptProfilesMutex);
 
-				for (auto& pair : m_dictScriptProfiles)
-				{
-					pair.second.AddToAllTraces(fFrameTime * 1000000.f);
-				}
+			    for (auto& pair : m_dictScriptProfiles)
+			    {
+			        pair.second.AddToAllTraces(fFrameTime * 1000000.f);
+			    }
 
-				lock.unlock();
+			    lock.unlock();
 			}*/
 		}
 	}
 }
 
-void RecordView::ScriptRoutineCallback(rage::scrThread* pThread, ERoutineTraceType eTraceType, DWORD_t dwEnterIP)
+void RecordView::ScriptRoutineCallback(rage::scrThread *pThread, ERoutineTraceType eTraceType, DWORD_t dwEnterIP)
 {
 	std::lock_guard lock(m_scriptProfilesMutex);
 
 	if (m_dictScriptProfiles.find(pThread->m_dwThreadId) == m_dictScriptProfiles.end())
 	{
-		m_dictScriptProfiles.emplace(pThread->m_dwThreadId, DetailedScriptProfile(pThread->m_szName, m_eTraceMethod, Util::IsCustomScriptName(pThread->m_szName)));
+		m_dictScriptProfiles.emplace(
+		    pThread->m_dwThreadId,
+		    DetailedScriptProfile(pThread->m_szName, m_eTraceMethod, Util::IsCustomScriptName(pThread->m_szName)));
 	}
 
 	switch (eTraceType)

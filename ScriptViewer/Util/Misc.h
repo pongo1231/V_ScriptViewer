@@ -7,9 +7,10 @@
 
 namespace Util
 {
-	inline bool IsCustomScriptName(const std::string& szScriptName)
+	inline bool IsCustomScriptName(const std::string &szScriptName)
 	{
-		return !szScriptName.c_str() || szScriptName == "control_thread" || szScriptName.find(".asi") != std::string::npos;
+		return !szScriptName.c_str() || szScriptName == "control_thread"
+		    || szScriptName.find(".asi") != std::string::npos;
 	}
 
 	inline DWORD64 GetTimeMcS()

@@ -11,20 +11,20 @@
 
 #pragma endregion
 
-static bool ms_bDidInit = false;
-static bool ms_bDidImguiInit = false;
+static bool ms_bDidInit                     = false;
+static bool ms_bDidImguiInit                = false;
 static bool ms_bHasMenuOpenStateJustChanged = false;
 
-static bool ms_bIsMenuOpened = false;
+static bool ms_bIsMenuOpened                = false;
 
 static inline void SetWindowOpenState(bool state)
 {
-	ms_bIsMenuOpened = state;
+	ms_bIsMenuOpened                = state;
 
 	ms_bHasMenuOpenStateJustChanged = true;
 }
 
-static LRESULT(*OG_WndProc)(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+static LRESULT (*OG_WndProc)(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 static LRESULT HK_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	if (ms_bDidImguiInit)
@@ -65,7 +65,7 @@ static LRESULT HK_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 	if (ms_bIsMenuOpened)
 	{
-		ImGuiIO& io = ImGui::GetIO();
+		ImGuiIO &io = ImGui::GetIO();
 
 		switch (uMsg)
 		{
@@ -105,16 +105,16 @@ static LRESULT HK_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	return OG_WndProc(hWnd, uMsg, wParam, lParam);
 }
 
-static void** ms_pPresentVftEntryAddr = nullptr;
-static HRESULT(*OG_OnPresence)(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UINT uiFlags);
-static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UINT uiFlags)
+static void **ms_pPresentVftEntryAddr = nullptr;
+static HRESULT (*OG_OnPresence)(IDXGISwapChain *pSwapChain, UINT uiSyncInterval, UINT uiFlags);
+static HRESULT HK_OnPresence(IDXGISwapChain *pSwapChain, UINT uiSyncInterval, UINT uiFlags)
 {
 	if (!ms_bDidImguiInit)
 	{
-		ID3D11Device* pDevice = nullptr;
-		pSwapChain->GetDevice(__uuidof(ID3D11Device), reinterpret_cast<void**>(&pDevice));
+		ID3D11Device *pDevice = nullptr;
+		pSwapChain->GetDevice(__uuidof(ID3D11Device), reinterpret_cast<void **>(&pDevice));
 
-		ID3D11DeviceContext* ms_pDeviceContext = nullptr;
+		ID3D11DeviceContext *ms_pDeviceContext = nullptr;
 		pDevice->GetImmediateContext(&ms_pDeviceContext);
 
 		IMGUI_CHECKVERSION();
@@ -158,7 +158,7 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 		ImGui_ImplWin32_NewFrame();
 		ImGui::NewFrame();
 
-		for (Component* pComponent : g_rgpComponents)
+		for (Component *pComponent : g_rgpComponents)
 		{
 			if (pComponent->m_bIsOpen)
 			{
@@ -188,9 +188,11 @@ static HRESULT HK_OnPresence(IDXGISwapChain* pSwapChain, UINT uiSyncInterval, UI
 	return OG_OnPresence(pSwapChain, uiSyncInterval, uiFlags);
 }
 
-static void** ms_pResizeBuffersAddr = nullptr;
-static HRESULT(*OG_ResizeBuffers)(IDXGISwapChain* pSwapChain, UINT uiBufferCount, UINT uiWidth, UINT uiHeight, DXGI_FORMAT newFormat, UINT uiSwapChainFlags);
-static HRESULT HK_ResizeBuffers(IDXGISwapChain* pSwapChain, UINT uiBufferCount, UINT uiWidth, UINT uiHeight, DXGI_FORMAT newFormat, UINT uiSwapChainFlags)
+static void **ms_pResizeBuffersAddr = nullptr;
+static HRESULT (*OG_ResizeBuffers)(IDXGISwapChain *pSwapChain, UINT uiBufferCount, UINT uiWidth, UINT uiHeight,
+                                   DXGI_FORMAT newFormat, UINT uiSwapChainFlags);
+static HRESULT HK_ResizeBuffers(IDXGISwapChain *pSwapChain, UINT uiBufferCount, UINT uiWidth, UINT uiHeight,
+                                DXGI_FORMAT newFormat, UINT uiSwapChainFlags)
 {
 	if (ms_bDidImguiInit)
 	{
@@ -207,11 +209,11 @@ static HRESULT HK_ResizeBuffers(IDXGISwapChain* pSwapChain, UINT uiBufferCount, 
 	return hResult;
 }
 
-static __int64(*OG_ScriptRunHook)(rage::scrThread* pScrThread);
-static __int64 HK_ScriptRunHook(rage::scrThread* pScrThread)
+static __int64 (*OG_ScriptRunHook)(rage::scrThread *pScrThread);
+static __int64 HK_ScriptRunHook(rage::scrThread *pScrThread)
 {
 	bool bAbort = false;
-	for (Component* pComponent : g_rgpComponents)
+	for (Component *pComponent : g_rgpComponents)
 	{
 		if (!pComponent->RunHook(pScrThread))
 		{
@@ -224,13 +226,13 @@ static __int64 HK_ScriptRunHook(rage::scrThread* pScrThread)
 		return 0;
 	}
 
-	const auto& startTimestamp = Util::GetTimeMcS();
+	const auto &startTimestamp = Util::GetTimeMcS();
 
-	__int64 result = OG_ScriptRunHook(pScrThread);
+	__int64 result             = OG_ScriptRunHook(pScrThread);
 
-	DWORD64 qwExecutionTime = Util::GetTimeMcS() - startTimestamp;
+	DWORD64 qwExecutionTime    = Util::GetTimeMcS() - startTimestamp;
 
-	for (Component* pComponent : g_rgpComponents)
+	for (Component *pComponent : g_rgpComponents)
 	{
 		pComponent->RunCallback(pScrThread, qwExecutionTime);
 	}
@@ -262,33 +264,35 @@ void Main::Uninit()
 static bool InitSwapChainHooks()
 {
 	// Create dummy device and swap chain to patch IDXGISwapChain's vftable
-	DXGI_SWAP_CHAIN_DESC swapChainDesc{};
+	DXGI_SWAP_CHAIN_DESC swapChainDesc {};
 
-	swapChainDesc.BufferDesc.Width = 640;
-	swapChainDesc.BufferDesc.Height = 480;
-	swapChainDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	swapChainDesc.BufferDesc.RefreshRate.Numerator = 60;
+	swapChainDesc.BufferDesc.Width                   = 640;
+	swapChainDesc.BufferDesc.Height                  = 480;
+	swapChainDesc.BufferDesc.Format                  = DXGI_FORMAT_R8G8B8A8_UNORM;
+	swapChainDesc.BufferDesc.RefreshRate.Numerator   = 60;
 	swapChainDesc.BufferDesc.RefreshRate.Denominator = 1;
 
-	swapChainDesc.SampleDesc.Count = 1;
-	swapChainDesc.SampleDesc.Quality = 0;
+	swapChainDesc.SampleDesc.Count                   = 1;
+	swapChainDesc.SampleDesc.Quality                 = 0;
 
-	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-	swapChainDesc.BufferCount = 1;
-	swapChainDesc.OutputWindow = Memory::g_hWnd;
-	swapChainDesc.Windowed = TRUE;
-	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
-	swapChainDesc.Flags = 0;
+	swapChainDesc.BufferUsage                        = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	swapChainDesc.BufferCount                        = 1;
+	swapChainDesc.OutputWindow                       = Memory::g_hWnd;
+	swapChainDesc.Windowed                           = TRUE;
+	swapChainDesc.SwapEffect                         = DXGI_SWAP_EFFECT_DISCARD;
+	swapChainDesc.Flags                              = 0;
 
-	D3D_FEATURE_LEVEL featureLevel = D3D_FEATURE_LEVEL_10_0;
+	D3D_FEATURE_LEVEL featureLevel                   = D3D_FEATURE_LEVEL_10_0;
 
-	IDXGISwapChain* pSwapChain = nullptr;
+	IDXGISwapChain *pSwapChain                       = nullptr;
 
-	auto D3D11CreateDeviceAndSwapChain = reinterpret_cast<HRESULT(*)(IDXGIAdapter*, D3D_DRIVER_TYPE, HMODULE, UINT, const D3D_FEATURE_LEVEL*, UINT, UINT,
-		const DXGI_SWAP_CHAIN_DESC*, IDXGISwapChain**, ID3D11Device**, D3D_FEATURE_LEVEL*, ID3D11DeviceContext**)>
-		(GetProcAddress(GetModuleHandle(L"d3d11.dll"), "D3D11CreateDeviceAndSwapChain"));
+	auto D3D11CreateDeviceAndSwapChain               = reinterpret_cast<HRESULT (*)(
+        IDXGIAdapter *, D3D_DRIVER_TYPE, HMODULE, UINT, const D3D_FEATURE_LEVEL *, UINT, UINT,
+        const DXGI_SWAP_CHAIN_DESC *, IDXGISwapChain **, ID3D11Device **, D3D_FEATURE_LEVEL *, ID3D11DeviceContext **)>(
+        GetProcAddress(GetModuleHandle(L"d3d11.dll"), "D3D11CreateDeviceAndSwapChain"));
 
-	D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_WARP, NULL, 0, &featureLevel, 1, D3D11_SDK_VERSION, &swapChainDesc, &pSwapChain, NULL, NULL, NULL);
+	D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_WARP, NULL, 0, &featureLevel, 1, D3D11_SDK_VERSION,
+	                              &swapChainDesc, &pSwapChain, NULL, NULL, NULL);
 
 	if (!pSwapChain)
 	{
@@ -297,17 +301,18 @@ static bool InitSwapChainHooks()
 		return false;
 	}
 
-	Handle handle = Handle(*reinterpret_cast<DWORD64*>(pSwapChain));
+	Handle handle           = Handle(*reinterpret_cast<DWORD64 *>(pSwapChain));
 
-	ms_pPresentVftEntryAddr = handle.At(64).Get<void*>();
-	OG_OnPresence = *reinterpret_cast<HRESULT(**)(IDXGISwapChain*, UINT, UINT)>(ms_pPresentVftEntryAddr);
+	ms_pPresentVftEntryAddr = handle.At(64).Get<void *>();
+	OG_OnPresence           = *reinterpret_cast<HRESULT (**)(IDXGISwapChain *, UINT, UINT)>(ms_pPresentVftEntryAddr);
 
 	Memory::Write(ms_pPresentVftEntryAddr, HK_OnPresence);
 
 	LOG("Hooked IDXGISwapChain::Present through vftable injection");
 
-	ms_pResizeBuffersAddr = handle.At(104).Get<void*>();
-	OG_ResizeBuffers = *reinterpret_cast<HRESULT(**)(IDXGISwapChain*, UINT, UINT, UINT, DXGI_FORMAT, UINT)>(ms_pResizeBuffersAddr);
+	ms_pResizeBuffersAddr = handle.At(104).Get<void *>();
+	OG_ResizeBuffers =
+	    *reinterpret_cast<HRESULT (**)(IDXGISwapChain *, UINT, UINT, UINT, DXGI_FORMAT, UINT)>(ms_pResizeBuffersAddr);
 
 	Memory::Write(ms_pResizeBuffersAddr, HK_ResizeBuffers);
 
@@ -340,7 +345,8 @@ void Main::Loop()
 		}
 
 #ifdef RELOADABLE
-		handle = Memory::FindPattern("48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 48 83 EC 20 48 8D 81 D0 00 00 00");
+		handle = Memory::FindPattern(
+		    "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 48 83 EC 20 48 8D 81 D0 00 00 00");
 #else
 		handle = Memory::FindPattern("48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 80 B9 46 01 00 00 00");
 #endif
@@ -382,7 +388,7 @@ void Main::Loop()
 			DISABLE_ALL_CONTROL_ACTIONS(0);
 		}
 
-		for (Component* pComponent : g_rgpComponents)
+		for (Component *pComponent : g_rgpComponents)
 		{
 			pComponent->RunScript();
 		}

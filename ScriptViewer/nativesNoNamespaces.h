@@ -1,8 +1,8 @@
 #pragma once
 
 #define WIN32_LEAN_AND_MEAN
-#include <windows.h>
 #include "../vendor/scripthookv/natives.h"
+#include <windows.h>
 
 #include <cstring>
 #include <ctype.h>
@@ -47,7 +47,7 @@ using namespace DECORATOR;
 using namespace SOCIALCLUB;
 
 // Thanks to menyoo!
-inline Hash GET_HASH_KEY(const char* string)
+inline Hash GET_HASH_KEY(const char *string)
 {
 	int length = strlen(string);
 
@@ -66,23 +66,23 @@ inline Hash GET_HASH_KEY(const char* string)
 	return hash;
 }
 
-inline void SET_ENTITY_AS_NO_LONGER_NEEDED(Entity* entity)
+inline void SET_ENTITY_AS_NO_LONGER_NEEDED(Entity *entity)
 {
 	SET_ENTITY_AS_MISSION_ENTITY(*entity, true, true);
 	invoke<Void>(0xB736A491E64A32CF, entity); // orig native
 }
 
-inline void SET_OBJECT_AS_NO_LONGER_NEEDED(Object* prop)
+inline void SET_OBJECT_AS_NO_LONGER_NEEDED(Object *prop)
 {
 	SET_ENTITY_AS_NO_LONGER_NEEDED(prop);
 }
 
-inline void SET_PED_AS_NO_LONGER_NEEDED(Ped* ped)
+inline void SET_PED_AS_NO_LONGER_NEEDED(Ped *ped)
 {
 	SET_ENTITY_AS_NO_LONGER_NEEDED(ped);
 }
 
-inline void SET_VEHICLE_AS_NO_LONGER_NEEDED(Vehicle* veh)
+inline void SET_VEHICLE_AS_NO_LONGER_NEEDED(Vehicle *veh)
 {
 	SET_ENTITY_AS_NO_LONGER_NEEDED(veh);
 }

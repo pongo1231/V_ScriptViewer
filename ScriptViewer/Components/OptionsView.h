@@ -2,15 +2,14 @@
 
 #include "Component.h"
 
-#include <vector>
 #include <memory>
+#include <vector>
 
 class OptionsView : public Component
 {
-public:
+  public:
 	OptionsView() : Component()
 	{
-
 	}
 
 	virtual void RunImGui() override;

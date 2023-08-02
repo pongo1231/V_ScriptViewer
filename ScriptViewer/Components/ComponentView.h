@@ -2,27 +2,26 @@
 
 #include "Component.h"
 
-#include <vector>
 #include <memory>
+#include <vector>
 
 class ComponentView : public Component
 {
-private:
+  private:
 	struct ComponentEntry
 	{
-		ComponentEntry(const char* const szComponentName, std::unique_ptr<Component>&& pComponent)
-			: m_szComponentName(szComponentName), m_pComponent(std::move(pComponent))
+		ComponentEntry(const char *const szComponentName, std::unique_ptr<Component> &&pComponent)
+		    : m_szComponentName(szComponentName), m_pComponent(std::move(pComponent))
 		{
-
 		}
 
-		const char* const m_szComponentName;
+		const char *const m_szComponentName;
 		std::unique_ptr<Component> m_pComponent;
 	};
 
 	std::vector<ComponentEntry> m_rgComponents;
 
-public:
+  public:
 	ComponentView();
 
 	virtual void RunImGui() override;

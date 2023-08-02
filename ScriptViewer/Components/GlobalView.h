@@ -4,10 +4,9 @@
 
 class GlobalView : public Component
 {
-public:
+  public:
 	GlobalView() : Component()
 	{
-
 	}
 
 	virtual void RunImGui() override;

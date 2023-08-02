@@ -4,13 +4,13 @@
 
 namespace Memory
 {
-	inline std::vector<void(*)()> g_rgHooks;
+	inline std::vector<void (*)()> g_rgHooks;
 }
 
 class RegisterHook
 {
-public:
-	RegisterHook(void(*pHook)())
+  public:
+	RegisterHook(void (*pHook)())
 	{
 		if (pHook)
 		{
@@ -18,5 +18,5 @@ public:
 		}
 	}
 
-	RegisterHook(RegisterHook&) = delete;
+	RegisterHook(RegisterHook &) = delete;
 };

@@ -5,9 +5,13 @@ typedef unsigned int DWORD_t;
 
 class Handle
 {
-public:
-	Handle() : m_dwAddr(0) {}
-	Handle(DWORD64 addr) : m_dwAddr(addr) {}
+  public:
+	Handle() : m_dwAddr(0)
+	{
+	}
+	Handle(DWORD64 addr) : m_dwAddr(addr)
+	{
+	}
 
 	inline bool IsValid() const
 	{
@@ -19,14 +23,12 @@ public:
 		return IsValid() ? m_dwAddr + iOffset : 0;
 	}
 
-	template<typename T>
-	inline T* Get() const
+	template <typename T> inline T *Get() const
 	{
-		return reinterpret_cast<T*>(m_dwAddr);
+		return reinterpret_cast<T *>(m_dwAddr);
 	}
 
-	template<typename T>
-	inline T Value() const
+	template <typename T> inline T Value() const
 	{
 		return IsValid() ? *Get<T>() : 0;
 	}
@@ -47,6 +49,6 @@ public:
 		return 0;
 	}
 
-private:
+  private:
 	DWORD64 m_dwAddr;
 };

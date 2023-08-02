@@ -15,14 +15,14 @@ namespace Memory
 		GetModuleInformation(GetCurrentProcess(), GetModuleHandle(NULL), &moduleInfo, sizeof(moduleInfo));
 
 		m_baseAddr = reinterpret_cast<DWORD64>(moduleInfo.lpBaseOfDll);
-		m_endAddr = m_baseAddr + moduleInfo.SizeOfImage;
+		m_endAddr  = m_baseAddr + moduleInfo.SizeOfImage;
 	}
 
 	void InitHooks()
 	{
 		MH_Initialize();
 
-		for (void(*pHook)() : Memory::g_rgHooks)
+		for (void (*pHook)() : Memory::g_rgHooks)
 		{
 			pHook();
 		}
@@ -38,12 +38,12 @@ namespace Memory
 		MH_Uninitialize();
 	}
 
-	Handle FindPattern(const std::string& szPattern)
+	Handle FindPattern(const std::string &szPattern)
 	{
 		std::vector<int> rgiBytes;
 
 		std::string szSub = szPattern;
-		int offset = 0;
+		int offset        = 0;
 		while ((offset = szSub.find(' ')) != szSub.npos)
 		{
 			std::string szByteStr = szSub.substr(0, offset);
@@ -73,7 +73,7 @@ namespace Memory
 		int iCount = 0;
 		for (DWORD64 dwAddr = m_baseAddr; dwAddr < m_endAddr; dwAddr++)
 		{
-			if (rgiBytes[iCount] == -1 || *reinterpret_cast<BYTE*>(dwAddr) == rgiBytes[iCount])
+			if (rgiBytes[iCount] == -1 || *reinterpret_cast<BYTE *>(dwAddr) == rgiBytes[iCount])
 			{
 				if (++iCount == rgiBytes.size())
 				{
@@ -91,9 +91,9 @@ namespace Memory
 		return Handle();
 	}
 
-	MH_STATUS AddHook(void* pTarget, void* pDetour, void* pOrig)
+	MH_STATUS AddHook(void *pTarget, void *pDetour, void *pOrig)
 	{
-		MH_STATUS result = MH_CreateHook(pTarget, pDetour, reinterpret_cast<void**>(pOrig));
+		MH_STATUS result = MH_CreateHook(pTarget, pDetour, reinterpret_cast<void **>(pOrig));
 
 		if (result == MH_OK)
 		{
@@ -103,23 +103,23 @@ namespace Memory
 		return result;
 	}
 
-	const char* const GetTypeName(__int64 vptr)
+	const char *const GetTypeName(__int64 vptr)
 	{
 		if (vptr)
 		{
-			__int64 vftable = *reinterpret_cast<__int64*>(vptr);
+			__int64 vftable = *reinterpret_cast<__int64 *>(vptr);
 			if (vftable)
 			{
-				__int64 rtti = *reinterpret_cast<__int64*>(vftable - 8);
+				__int64 rtti = *reinterpret_cast<__int64 *>(vftable - 8);
 				if (rtti)
 				{
-					__int64 rva = *reinterpret_cast<DWORD*>(rtti + 12);
+					__int64 rva = *reinterpret_cast<DWORD *>(rtti + 12);
 					if (rva)
 					{
 						__int64 typeDesc = m_baseAddr + rva;
 						if (typeDesc)
 						{
-							return reinterpret_cast<const char*>(typeDesc + 16);
+							return reinterpret_cast<const char *>(typeDesc + 16);
 						}
 					}
 				}

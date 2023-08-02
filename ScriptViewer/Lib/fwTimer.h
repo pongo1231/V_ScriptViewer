@@ -4,6 +4,6 @@ namespace rage
 {
 	struct fwTimer
 	{
-		static inline bool* ms_pbUserPause = nullptr;
+		static inline bool *ms_pbUserPause = nullptr;
 	};
 }

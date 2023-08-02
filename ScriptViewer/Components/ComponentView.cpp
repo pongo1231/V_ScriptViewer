@@ -11,7 +11,7 @@ ComponentView::ComponentView() : Component()
 
 	m_rgComponents.emplace_back("Script Viewer", std::make_unique<ScriptView>());
 
-	//m_rgComponents.emplace_back("Global Editor", std::make_unique<GlobalView>());
+	// m_rgComponents.emplace_back("Global Editor", std::make_unique<GlobalView>());
 
 	m_rgComponents.emplace_back("Record View", std::make_unique<RecordView>());
 
@@ -24,7 +24,7 @@ void ComponentView::RunImGui()
 
 	ImGui::Begin("Components", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize);
 
-	for (ComponentEntry& componentEntry : m_rgComponents)
+	for (ComponentEntry &componentEntry : m_rgComponents)
 	{
 		if (componentEntry.m_pComponent->m_bIsOpen)
 		{

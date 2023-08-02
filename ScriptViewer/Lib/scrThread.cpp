@@ -7,7 +7,7 @@ static void OnHook()
 	handle = Memory::FindPattern("48 8B 05 ? ? ? ? 8B CB 48 8B 0C C8 83 79 10 02");
 	if (handle.IsValid())
 	{
-		rage::scrThread::ms_ppThreads = handle.At(2).Into().Value<rage::scrThread**>();
+		rage::scrThread::ms_ppThreads = handle.At(2).Into().Value<rage::scrThread **>();
 
 		LOG("Found rage::scrThread::sm_Threads");
 	}
@@ -23,7 +23,7 @@ static void OnHook()
 	handle = Memory::FindPattern("48 8B 1D ? ? ? ? 48 C7 C1 FF FF FF FF 4B 8D 3C 40 66 45 03 C7");
 	if (handle.IsValid())
 	{
-		rage::scrThread::ms_pStacks = handle.At(2).Into().Value<rage::_scrStack*>();
+		rage::scrThread::ms_pStacks = handle.At(2).Into().Value<rage::_scrStack *>();
 
 		LOG("Found rage::scrThread::sm_Stacks");
 	}

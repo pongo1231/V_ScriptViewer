@@ -8,12 +8,12 @@
 
 #pragma endregion
 
-bool ScriptView::RunHook(rage::scrThread* pScrThread)
+bool ScriptView::RunHook(rage::scrThread *pScrThread)
 {
 	return !IsScriptThreadIdPaused(pScrThread->m_dwThreadId);
 }
 
-void ScriptView::RunCallback(rage::scrThread* pScrThread, DWORD64 qwExecutionTime)
+void ScriptView::RunCallback(rage::scrThread *pScrThread, DWORD64 qwExecutionTime)
 {
 	m_dcScriptProfiles[pScrThread->m_dwThreadId].Add(qwExecutionTime);
 }
@@ -37,8 +37,10 @@ void ScriptView::RunImGui()
 		ciColumns++;
 	}
 
-	if (ImGui::BeginTable("", ciColumns, ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable
-		| ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchSame, { 0, -73.f }))
+	if (ImGui::BeginTable("", ciColumns,
+	                      ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable
+	                          | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchSame,
+	                      { 0, -73.f }))
 	{
 		ImGui::TableSetupColumn("Script Name", 0, .6f);
 		if (m_bShowExecutionTimes)
@@ -54,30 +56,30 @@ void ScriptView::RunImGui()
 
 		ImGui::TableNextColumn();
 
-		DWORD64 qwTimestamp = GetTickCount64();
+		DWORD64 qwTimestamp     = GetTickCount64();
 
 		bool bDoNewProfileRound = false;
 		if (qwTimestamp > m_qwLastProfileUpdatedTimestamp)
 		{
 			m_qwLastProfileUpdatedTimestamp = qwTimestamp + SCRIPT_PROFILING_UPDATE_FREQ;
 
-			bDoNewProfileRound = true;
+			bDoNewProfileRound              = true;
 		}
 
 		for (WORD wScriptIdx = 0; wScriptIdx < *rage::scrThread::ms_pcwThreads; wScriptIdx++)
 		{
-			rage::scrThread* pThread = rage::scrThread::ms_ppThreads[wScriptIdx];
+			rage::scrThread *pThread = rage::scrThread::ms_ppThreads[wScriptIdx];
 
 			if (!pThread->m_dwThreadId)
 			{
 				continue;
 			}
 
-			const char* szScriptName = pThread->m_szName;
-			DWORD_t dwThreadId = pThread->m_dwThreadId;
+			const char *szScriptName      = pThread->m_szName;
+			DWORD_t dwThreadId            = pThread->m_dwThreadId;
 
 			bool bIsScriptAboutToBeKilled = m_dwKillScriptThreadId == dwThreadId;
-			bool bIsScriptPaused = IsScriptThreadIdPaused(dwThreadId);
+			bool bIsScriptPaused          = IsScriptThreadIdPaused(dwThreadId);
 
 			if (bIsScriptAboutToBeKilled)
 			{
@@ -88,7 +90,7 @@ void ScriptView::RunImGui()
 				ImGui::PushStyleColor(ImGui::GetColumnIndex(), { 1.f, 1.f, 0.f, 1.f });
 			}
 
-			ScriptProfile& scriptProfile = m_dcScriptProfiles[dwThreadId];
+			ScriptProfile &scriptProfile = m_dcScriptProfiles[dwThreadId];
 
 			if (bDoNewProfileRound)
 			{
@@ -124,7 +126,7 @@ void ScriptView::RunImGui()
 
 				if (!bIsCustomThread)
 				{
-					rage::_scrStack* pStack = pThread->GetScriptStack();
+					rage::_scrStack *pStack = pThread->GetScriptStack();
 
 					if (pStack)
 					{
@@ -152,12 +154,12 @@ void ScriptView::RunImGui()
 
 	ImGui::Spacing();
 
-	m_wSelectedItemIdx = std::min(m_wSelectedItemIdx, *rage::scrThread::ms_pcwThreads);
+	m_wSelectedItemIdx               = std::min(m_wSelectedItemIdx, *rage::scrThread::ms_pcwThreads);
 
-	rage::scrThread* pThread = rage::scrThread::ms_ppThreads[m_wSelectedItemIdx];
+	rage::scrThread *pThread         = rage::scrThread::ms_ppThreads[m_wSelectedItemIdx];
 
 	std::string szSelectedScriptName = pThread->m_szName;
-	DWORD_t dwSelectedThreadId = pThread->m_dwThreadId;
+	DWORD_t dwSelectedThreadId       = pThread->m_dwThreadId;
 
 #ifdef RELOADABLE
 	bool bIsSelectedScriptUnpausable = Util::IsCustomScriptName(szSelectedScriptName);
@@ -167,7 +169,7 @@ void ScriptView::RunImGui()
 #endif
 	bool bIsAnyScriptAboutToBeKilled = m_dwKillScriptThreadId;
 
-	bool bIsSelectedScriptPaused = IsScriptThreadIdPaused(dwSelectedThreadId);
+	bool bIsSelectedScriptPaused     = IsScriptThreadIdPaused(dwSelectedThreadId);
 
 	if (bIsSelectedScriptPaused)
 	{
@@ -246,8 +248,9 @@ void ScriptView::RunImGui()
 	{
 		ImGui::SameLine();
 
-		if (ImGui::Button(ScriptProfile::ms_eProfileType == eScriptProfileType::HIGHEST_TIME ? "Profile Type: Highest Time"
-			: "Profile Type: Average Time"))
+		if (ImGui::Button(ScriptProfile::ms_eProfileType == eScriptProfileType::HIGHEST_TIME
+		                      ? "Profile Type: Highest Time"
+		                      : "Profile Type: Average Time"))
 		{
 			switch (ScriptProfile::ms_eProfileType)
 			{
@@ -263,7 +266,8 @@ void ScriptView::RunImGui()
 		}
 	}
 
-	if (rage::scrThread::ms_pStacks && rage::scrThread::ms_pcwStacks && ImGui::Button(m_bShowStackSizes ? "Show Stack Sizes: On" : "Show Stack Sizes: Off"))
+	if (rage::scrThread::ms_pStacks && rage::scrThread::ms_pcwStacks
+	    && ImGui::Button(m_bShowStackSizes ? "Show Stack Sizes: On" : "Show Stack Sizes: Off"))
 	{
 		m_bShowStackSizes = !m_bShowStackSizes;
 	}
@@ -291,7 +295,7 @@ void ScriptView::RunImGui()
 
 		if (ImGui::Button("Start"))
 		{
-			m_bDoDispatchNewScript = true;
+			m_bDoDispatchNewScript   = true;
 
 			m_bIsNewScriptWindowOpen = false;
 		}
@@ -306,7 +310,7 @@ void ScriptView::RunScript()
 	{
 		for (WORD wScriptIdx = 0; wScriptIdx < *rage::scrThread::ms_pcwThreads; wScriptIdx++)
 		{
-			rage::scrThread* pThread = rage::scrThread::ms_ppThreads[wScriptIdx];
+			rage::scrThread *pThread = rage::scrThread::ms_ppThreads[wScriptIdx];
 
 			if (pThread->m_dwThreadId == m_dwKillScriptThreadId)
 			{
@@ -321,7 +325,8 @@ void ScriptView::RunScript()
 
 	if (m_bDoDispatchNewScript)
 	{
-		if (m_rgchNewScriptNameBuffer[0] && m_iNewScriptStackSize >= 0 && DOES_SCRIPT_EXIST(m_rgchNewScriptNameBuffer.data()))
+		if (m_rgchNewScriptNameBuffer[0] && m_iNewScriptStackSize >= 0
+		    && DOES_SCRIPT_EXIST(m_rgchNewScriptNameBuffer.data()))
 		{
 			REQUEST_SCRIPT(m_rgchNewScriptNameBuffer.data());
 
@@ -343,7 +348,8 @@ bool ScriptView::IsScriptThreadIdPaused(DWORD_t dwThreadId)
 {
 	std::lock_guard lock(m_blacklistedScriptThreadIdsMutex);
 
-	return std::find(m_rgdwBlacklistedScriptThreadIds.begin(), m_rgdwBlacklistedScriptThreadIds.end(), dwThreadId) != m_rgdwBlacklistedScriptThreadIds.end();
+	return std::find(m_rgdwBlacklistedScriptThreadIds.begin(), m_rgdwBlacklistedScriptThreadIds.end(), dwThreadId)
+	    != m_rgdwBlacklistedScriptThreadIds.end();
 }
 
 void ScriptView::PauseScriptThreadId(DWORD_t dwThreadId)
@@ -357,7 +363,8 @@ void ScriptView::UnpauseScriptThreadId(DWORD_t dwThreadId)
 {
 	std::lock_guard lock(m_blacklistedScriptThreadIdsMutex);
 
-	const auto& itScriptThreadId = std::find(m_rgdwBlacklistedScriptThreadIds.begin(), m_rgdwBlacklistedScriptThreadIds.end(), dwThreadId);
+	const auto &itScriptThreadId =
+	    std::find(m_rgdwBlacklistedScriptThreadIds.begin(), m_rgdwBlacklistedScriptThreadIds.end(), dwThreadId);
 
 	if (itScriptThreadId != m_rgdwBlacklistedScriptThreadIds.end())
 	{
@@ -371,7 +378,7 @@ void ScriptView::ClearNewScriptWindowState()
 
 	m_rgchNewScriptNameBuffer.fill(0);
 
-	m_iNewScriptStackSize = 0;
+	m_iNewScriptStackSize  = 0;
 
 	m_bDoDispatchNewScript = false;
 }
