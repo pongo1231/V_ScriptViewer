@@ -140,13 +140,23 @@ static void OnHook()
 
 		LOG("Hooked rage::scrThread::_RunInstr");
 
-		ms_chEnterTrap = handle.At(0x530).Get<char>();
+		// Use patterns here also (rather than offsets) as these also tend to change between builds
 
-		LOG("Found ENTER instruction byte to trap in rage::scrThread::_RunInstr");
+		handle = Memory::FindPattern("49 2B ? 48 C1 F8 03 48 3B C1");
+		if (handle.IsValid())
+		{
+			ms_chEnterTrap = handle.Get<char>();
 
-		ms_chLeaveTrap = handle.At(0x5D7).Get<char>();
+			LOG("Found ENTER instruction byte to trap in rage::scrThread::_RunInstr");
+		}
 
-		LOG("Found LEAVE instruction byte to trap in rage::scrThread::_RunInstr");
+		handle = Memory::FindPattern("49 2B ? 45 85 C9 74 11");
+		if (handle.IsValid())
+		{
+			ms_chLeaveTrap = handle.Get<char>();
+
+			LOG("Found LEAVE instruction byte to trap in rage::scrThread::_RunInstr");
+		}
 	}
 }
 

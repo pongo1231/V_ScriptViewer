@@ -21,7 +21,7 @@ namespace Memory
 
 	template <typename T> inline void Write(void *pAddr, T value, int count = 1)
 	{
-		DWORD_t dwOldProtect;
+		DWORD dwOldProtect;
 		VirtualProtect(static_cast<T *>(pAddr), sizeof(T) * count, PAGE_EXECUTE_READWRITE, &dwOldProtect);
 
 		for (int i = 0; i < count; i++)
