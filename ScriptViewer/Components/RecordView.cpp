@@ -144,7 +144,7 @@ void RecordView::RunImGui()
 	ImGui::SameLine();
 	ImGui::RadioButton("WAIT calls", reinterpret_cast<int *>(&m_eTraceMethod), static_cast<char>(ETraceMethod::IP));
 	ImGui::SameLine();
-	ImGui::RadioButton("Routines", reinterpret_cast<int *>(&m_eTraceMethod), static_cast<char>(ETraceMethod::Routine));
+	ImGui::RadioButton("Routines (slow, also kinda broken)", reinterpret_cast<int *>(&m_eTraceMethod), static_cast<char>(ETraceMethod::Routine));
 
 	if (m_bIsRecording)
 	{
