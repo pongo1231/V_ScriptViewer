@@ -37,7 +37,7 @@ void ScriptView::RunImGui()
 		ciColumns++;
 	}
 
-	if (ImGui::BeginTable("", ciColumns,
+	if (ImGui::BeginTable("##scriptTable", ciColumns,
 	                      ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable
 	                          | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchSame,
 	                      { 0, -73.f }))

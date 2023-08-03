@@ -153,7 +153,7 @@ void RecordView::RunImGui()
 
 	ImGui::PushItemWidth(-1);
 
-	if (ImGui::BeginTable("", 2,
+	if (ImGui::BeginTable("##scriptTable", 2,
 	                      ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable
 	                          | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchSame))
 	{
